@@ -22,6 +22,7 @@ require_once __DIR__ . '/inc/init.php';
 $_combopos = new Combosoft\ComboPOS();
 global $_combopos;
 
+
 // Activation Plugin
 register_activation_hook( __FILE__, ['Combosoft\ComboPOS', 'activate'] );
 
