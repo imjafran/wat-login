@@ -16,15 +16,6 @@
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
-require_once __DIR__ . '/inc/init.php';
+define('_CPOS_FILE', __FILE__);
 
-// initializing plugin 
-$_combopos = new Combosoft\ComboPOS();
-global $_combopos;
-
-
-// Activation Plugin
-register_activation_hook( __FILE__, ['Combosoft\ComboPOS', 'activate'] );
-
-// // Deactivation Plugin
-register_deactivation_hook( __FILE__, ['Combosoft\ComboPOS', 'deactivate'] );
+require_once __DIR__ . '/inc/load.php';
