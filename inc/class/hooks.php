@@ -4,19 +4,20 @@ namespace Combosoft\ComboPOS;
 
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 
-class Hooks{
+class Hooks {
     /**
      * Hooks Register
      */
     function register_hooks() {
-        add_action('tgmpa_register',                [&$this, 'plugin_activation']);
-        add_action( 'admin_enqueue_scripts' ,           [&$this, 'admin_scripts']);
-        // add_action( 'woocommerce_thankyou' ,        array( &$this, 'socket_notify'), 10, 1);
-        add_action( 'admin_menu' ,                      [&$this, 'combopos_admin_menu']);
-        add_action( 'init' ,                            [&$this, 'custom_post_status']);
-        add_action( 'wc_order_statuses' ,                            [&$this, 'custom_wc_order_status']);        
-        add_action( 'woocommerce_admin_order_data_after_order_details' ,                array( &$this, 'custom_delivery_time_options'));
-        add_action( 'woocommerce_process_shop_order_meta' ,                array( &$this, 'custom_delivery_time_save'));
+        add_action('tgmpa_register',                [$this, 'plugin_activation']);
+        add_action( 'admin_enqueue_scripts' ,           [$this, 'admin_scripts']);
+        add_action( 'admin_menu' ,                      [$this, 'combopos_admin_menu']);
+        add_action( 'init' ,                            [$this, 'custom_post_status']);
+        add_action( 'admin_init' ,                            [$this, 'reset_default_values']);
+        add_action( 'rest_api_init' ,                            [$this, 'reset_default_values']);
+        add_action( 'wc_order_statuses' ,                            [$this, 'custom_wc_order_status']);        
+        add_action( 'woocommerce_admin_order_data_after_order_details' ,               [$this, 'custom_delivery_time_options']);
+        add_action( 'woocommerce_process_shop_order_meta' ,                [$this, 'custom_delivery_time_save']);
             
     }
     
@@ -58,6 +59,7 @@ class Hooks{
     // load admin script
     function admin_scripts() {
         wp_enqueue_script('sweetalert', 'https://cdn.jsdelivr.net/npm/sweetalert2@10', ['jquery'], false, true);        
+        wp_enqueue_script('jscolor', 'https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.4.0/jscolor.min.js', ['jquery'], false, true);        
         wp_enqueue_script('combopos-admin', plugins_url('combopos/assets/js/admin.js'), ['jquery'], false, true);
         
         // wp_enqueue_style('uikit', 'https://cdn.jsdelivr.net/npm/uikit@3.5.9/dist/css/uikit.min.css');
@@ -139,6 +141,26 @@ class Hooks{
     }
 
 
+
+
+
+    // reset_default_values  
+    function reset_default_values(){
+        $default_options = [
+            'cpos_order_disable' => false,
+            'cpos_order_disable_reason' => '',
+            'cpos_delivery_time' => 45,
+            'cpos_app_primary_color' => '#cd5c5c',
+            'cpos_app_logo_url' => 'https://image.shutterstock.com/image-vector/ui-image-placeholder-wireframes-apps-260nw-1037719204.jpg',
+            'cpos_app_placeholder_url' => 'https://image.shutterstock.com/image-vector/ui-image-placeholder-wireframes-apps-260nw-1037719204.jpg',
+        ];
+
+        foreach($default_options as $default_option => $value){
+            register_setting('combopos_options', $default_option);            
+            add_option($default_option, $value);
+        }
+
+    }
 
 
     

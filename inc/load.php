@@ -4,6 +4,7 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 
 // requiring files 
 require_once __DIR__ . '/class/tgm-plugin-activation.php';
+require_once __DIR__ . '/class/mother.php';
 require_once __DIR__ . '/class/hooks.php';
 require_once __DIR__ . '/class/ajax.php';
 require_once __DIR__ . '/class/rest.php';
@@ -19,14 +20,13 @@ class ComboPOS {
     
     // construct method 
     function __construct(){
-       // register hooks 
-        $this->hooks = new ComboPOS\Hooks();
+    //    register hooks 
+        $this->hooks = new ComboPOS\Hooks;
         $this->hooks->register_hooks();  
-        $this->hooks = new ComboPOS\Ajax();
-        $this->hooks->register_ajax();  
-        $this->hooks = new ComboPOS\Rest();
-        $this->hooks->register_rest();  
-        return $this;
+        $this->ajax = new ComboPOS\Ajax;
+        $this->ajax->register_ajax();  
+        $this->rest = new ComboPOS\Rest();
+        $this->rest->register_rest();  
     }
 
     // activated 
@@ -46,7 +46,7 @@ class ComboPOS {
 // initializing plugin 
 $_combopos = new ComboPOS();
 
-// switching to global variable 
+// // switching to global variable 
 global $_combopos;
 
 

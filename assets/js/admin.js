@@ -1,4 +1,4 @@
-if (typeof ($) == 'undefined') {
+if (typeof ($) === 'undefined') {
     var $ = jQuery
 }
 
@@ -15,6 +15,39 @@ class _ComboPOS_Class {
         $('.combopos_wrap .tab-nav a:nth-child(' + tab + ')').addClass('active')
         $('.combopos_wrap .tab-content li').hide()
         $('.combopos_wrap .tab-content li:nth-child(' + tab + ')').fadeIn()
+    }
+
+    loading(message = "Please wait loading..") {
+        if (message) {
+            Swal.fire({
+                title: message,
+                showConfirmButton: false,
+                showCancelButton: false,
+            });
+            Swal.showLoading();
+        } else {
+            Swal.hideLoading();
+            Swal.close();
+        }
+        return true;
+    }
+
+    message(title, icon = 'success', timer = 3000, position = 'center') {
+        Swal.hideLoading();
+        Swal.fire({
+            title: title,
+            icon: icon,
+            timer: timer,
+            position: position
+        });
+    }
+
+    success(title) {
+        this.message(title);
+    }
+
+    error(title) {
+        this.message(title, 'error');
     }
 
 
@@ -36,4 +69,44 @@ $(document).on("click", ".delivery_time_quick a", function (e) {
 $(document).on("click", ".combopos_wrap .tab-nav a", function (e) {
     e.preventDefault()
     ComboPOS.changeTab(($(this).index() + 1))
+});
+
+// cpos_order_disable
+$(document).on("click", "#cpos_order_disable", function () {
+    $('#cpos_order_disable_reason').closest(".form-group").slideToggle();
+});
+
+// reset_cs_settings
+$(document).on("click", "#reset_cs_settings", function (e) {
+    e.preventDefault();
+    let data = {
+        action: 'reset_cs_settings'
+    }
+    ComboPOS.loading("Resettings Settings");
+    $.post(ajaxurl, data, function (response) {
+        if (response.status == true) {
+            ComboPOS.success(response.message ? response.message : 'Successfully Reset Settings!');
+        } else {
+            ComboPOS.error(response.message ? response.message : 'Something is wrong, check class\ajax.php');
+        }
+    })
+});
+
+
+
+// save_cs_settings
+$(document).on("submit", "#save_cs_settings", function (e) {
+    e.preventDefault();
+    let data = $(this).serialize();
+    data += '&action=save_cs_settings';
+
+    ComboPOS.loading("Saving Settings");
+    $.post(ajaxurl, data, function (response) {
+        // console.log(response);
+        if (response.status == true) {
+            ComboPOS.success(response.message ? response.message : 'Successfully Saved');
+        } else {
+            ComboPOS.error(response.message ? response.message : 'Settings Remains Unsaved');
+        }
+    })
 });
