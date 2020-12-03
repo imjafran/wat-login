@@ -99,21 +99,21 @@ ol {
         }
     }
 
-    .form-group {
-        margin: 20px 0;
-        display: flex;
-        // align-items: center;
-        justify-content: space-between;
+    // .form-group {
+    //     margin: 20px 0;
+    //     display: flex;
+    //     // align-items: center;
+    //     justify-content: space-between;
 
-        &>*:first-child {
-            width: 60%;
-        }
+    //     &>*:first-child {
+    //         width: 60%;
+    //     }
 
-        &>*:last-child {
-            width: 40%;
-        }
+    //     &>*:last-child {
+    //         width: 40%;
+    //     }
 
-    }
+    // }
 
     .form-note {
         padding: 0;
@@ -137,23 +137,17 @@ ol {
     }
 
     .button {
-        height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 150px;
         background: $color;
         color: $white;
         border: none;
-        opacity: .8;
-        transition: .3s;
 
         &:hover {
-            opacity: 1;
             background: $color;
-            color: $white
+            color: $white;
+            opacity: .8;
         }
     }
+
 }
 
 

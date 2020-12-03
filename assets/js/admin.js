@@ -82,14 +82,28 @@ $(document).on("click", "#reset_cs_settings", function (e) {
     let data = {
         action: 'reset_cs_settings'
     }
-    ComboPOS.loading("Resettings Settings");
-    $.post(ajaxurl, data, function (response) {
-        if (response.status == true) {
-            ComboPOS.success(response.message ? response.message : 'Successfully Reset Settings!');
+    Swal.fire({
+        title: 'Are you sure?',
+        html: 'This can not be UNDONE',
+        icon: 'warning',
+        showConfirmButton: true,
+        confirmButtonText: 'Reset Settings',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel',
+    }).then((isConfirm) => {
+        if (isConfirm.value) {
+            ComboPOS.loading("Resettings Settings");
+            $.post(ajaxurl, data, function (response) {
+                if (response.status == true) {
+                    ComboPOS.success(response.message ? response.message : ' Settings Reset to Default!');
+                } else {
+                    ComboPOS.error(response.message ? response.message : 'Something is wrong, check class\ajax.php');
+                }
+            });
         } else {
-            ComboPOS.error(response.message ? response.message : 'Something is wrong, check class\ajax.php');
+            Swal.close();
         }
-    })
+    });
 });
 
 
@@ -109,4 +123,17 @@ $(document).on("submit", "#save_cs_settings", function (e) {
             ComboPOS.error(response.message ? response.message : 'Settings Remains Unsaved');
         }
     })
+});
+
+
+
+$(function () {
+    $('[cs_multiple]').select2({
+        width: 'resolve',
+        placeholder: 'Select customer',
+        theme: 'classic',
+        tags: "true",
+        placeholder: "Select an option",
+        allowClear: true
+    });
 });
