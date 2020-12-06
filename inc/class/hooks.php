@@ -221,14 +221,13 @@ class Hooks {
             'publicly_queryable' => true,
             // 'show_ui'            => false,
             // 'show_in_menu'       => false,
-            'query_var'          => true,
+            'query_var'          => false,
             'rewrite'            => ['slug' => 'cs_notification' ],
             'capability_type'    => 'post',
             'has_archive'        => false,
             'hierarchical'       => false,
             'menu_position'      => 20,
             'supports'           => [ 'title', 'custom-fields' ],
-            'taxonomies'         => [ 'category', 'post_tag' ],
             'show_in_rest'       => false
         );
         
@@ -240,18 +239,50 @@ class Hooks {
     function on_change_order_status($orderId = null, $changedFrom = null){
         $order = new \WC_Order($orderId);
 
-        $some_data = array(
+        $order_statuses = [
+            'pending' => 'is pending',
+            'processing' => 'is processing',
+            'on-hold' => 'is hold',
+            'completed' => 'is completed',
+            'cancelled' => 'is cancelled',
+            'refunded' => 'is refunded',
+            'failed' => 'is faild',
+            'on-the-way' => 'is on the way',
+        ];
+
+        $message = array_key_exists($order->get_status(), $order_statuses) ? $order_statuses[$order->get_status()] : $order_statuses['processing'];
+
+        // add to notification database
+        $args = array(
+            'post_type'    => 'cs_notification',
+            'post_status'  => 'publish',
+            'post_title' => 'Order ID ' . $orderId . ' ' .  $message,
+            'post_content' =>  'Order is ' . $message,
+            'meta_input'   => [
+                'type'      => 'notification',
+                'orderId'   =>  $orderId,
+                'userId'    => $order->get_customer_id(),
+                'by'        => 0
+            ]
+        );
+        
+        $notification_id = wp_insert_post($args);
+
+
+        // push notification to mobile
+        $push_notification_data = array(
             'token' => 'public', 
             'data' => [
                 'type' => 'notification',
-                'message' =>  $orderId . ' order status changed from ' . $changedFrom,
+                'message' => 'Your order ' . $message,
                 'room' => 'test',
                 'orderId' => $orderId,
-                'userId' => 0,
+                'notificationId' => $notification_id,
+                'userId' => $order->get_customer_id(),
             ]
         );  
 
-       $this->push_notification_socket($some_data);
+       $this->push_notification_socket($push_notification_data);
        
     }
     

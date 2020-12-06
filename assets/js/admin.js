@@ -137,3 +137,8 @@ $(function () {
         allowClear: true
     });
 });
+
+
+$(document).on("submit", "#check_cs_license", function () {
+
+});
