@@ -22,7 +22,13 @@ class Hooks {
         add_action( 'saved_product_cat' ,                                               [$this, 'change_updated_at_option']);
         add_action( 'rest_product_collection_params' ,                                  [$this, 'change_default_wc_rest_product_collection'], 10, 1);        
         add_action( 'init' ,                                                            [$this, 'register_post_type_notification']);        
-        add_action( 'woocommerce_order_status_changed' ,                                       [$this, 'on_change_order_status'], 10, 2);        
+        add_action( 'woocommerce_order_status_changed' ,                                [$this, 'on_change_order_status'], 10, 2);        
+        add_action( 'woocommerce_product_data_tabs' ,                                   [$this, 'custom_product_data_tabs']);        
+        add_action( 'woocommerce_product_data_panels' ,                                 [$this, 'custom_product_data_panels']);        
+        add_action( 'woocommerce_process_product_meta_simple' ,                         [$this, 'custom_process_product_meta']);        
+        add_action( 'woocommerce_process_product_meta_variable' ,                         [$this, 'custom_process_product_meta']);        
+        add_action( 'product_type_options' ,                                            [$this, 'custom_product_type_options']);        
+        // add_action( 'init' ,                                            [$this, 'add_cu']);        
             
     }
     
@@ -90,12 +96,38 @@ class Hooks {
     // init admin menu 
     function combopos_admin_menu()
     {
-        add_menu_page( 'ComboPOS Admin', 'ComboPOS', 'manage_options', 'combopos', function(){
-            include_once __DIR__ . '/../page/settings.php';
-        }, 'dashicons-welcome-widgets-menus', 9999 ); 
-        add_menu_page( 'Broadcast Notification', 'Notification', 'manage_options', 'notification', function(){
+        add_menu_page( 'ComboPOS Settings', 'ComboPOS', 'edit_posts', 'combopos', function(){
             include_once __DIR__ . '/../page/notifications.php';
-        }, 'dashicons-bell', 9999 );              
+        }, '', 900000  );    
+        add_submenu_page( 'admin.php?page=combopos', 'Broadcast Notification', 'Notification', 'edit_posts', 'notification', function(){
+            include_once __DIR__ . '/../page/notifications.php';
+        }, '', 9000 );    
+        add_submenu_page( 'hidden.php', 'License ComboPOS', 'License', 'edit_posts', 'license', function(){
+            include_once __DIR__ . '/../page/notifications.php';
+        }, '', 9000 );    
+
+
+
+        // if( function_exists('acf_add_options_page') ) {
+	
+        //     acf_add_options_page(array(
+        //         'page_title' 	=> 'ComboPOS Settings',
+        //         'menu_title'	=> 'ComboPOS',
+        //         'menu_slug' 	=> 'combopos',
+        //         'capability'	=> 'edit_posts',
+        //         'redirect'		=> false
+        //     ));
+            
+        //     acf_add_options_sub_page(array(
+        //         'page_title' 	=> 'ComboPOS Settings',
+        //         'menu_title'	=> 'Settings',
+        //         'parent_slug'	=> 'combopos',
+        //         'menu_slug'     => 'combopos-settings'
+        //     ));
+
+        //     add_submenu_page( 'combopos', 'Broadcast Notification', 'Notification', 'edit_posts', 'admin.php?page=notification', '', '', 900000000 ); 
+        //     add_submenu_page( 'combopos', 'License ComboPOS', 'License', 'edit_posts', 'admin.php?page=license', '', '', 90000000 ); 
+        // }          
     }
 
 
@@ -297,5 +329,97 @@ class Hooks {
         $result = curl_exec($curl);
         curl_close($curl);
         return true;
+    }
+
+
+
+    function custom_product_data_tabs( $tabs ){
+        
+        $tabs['food_op'] = [
+            'label'		=> __( 'Food Options', 'woocommerce' ),
+            'target'	=> 'food_op',
+            'class'		=> [ 'show_if_simple', 'show_if_variable'],
+        ];
+
+        return $tabs;
+
+    }
+
+    function custom_product_data_panels(){
+        global $post;
+	
+	// Note the 'id' attribute needs to match the 'target' parameter set above
+	?><div id='food_op' class='panel woocommerce_options_panel'><?php
+
+        ?><div class='options_group'><?php
+        
+
+			woocommerce_wp_checkbox( [
+                'id' 		=> 'cs_hide_customer_app',
+                'label' 	=> __( 'Hide on Customer App', 'woocommerce' )
+            ] );
+
+			woocommerce_wp_checkbox( [
+                'id' 		=> 'cs_hide_web',
+                'label' 	=> __( 'Hide Web', 'woocommerce' )
+            ] );
+
+            // is halal 
+			// woocommerce_wp_checkbox( [
+            //     'id' 		=> 'cs_is_halal',
+            //     'label' 	=> __( 'Food is Halal', 'woocommerce' )
+            // ] );
+            $spicy = get_post_meta($post->ID, 'cs_spicy');
+
+		?>
+        <fieldset class="form-field cs_spicy_field ">
+            <label style="float: left">Spicy Level</label>
+            <ul class="wc-radios" style="color: darkred">
+                <?php for($i = 0; $i <= 3; $i++): ?>
+                <li><label><input name="cs_spicy" value="<?=$i?>" type="radio" class="select short"
+                            <?=$spicy[0] == $i ? 'checked' : ''?>> <?=str_repeat('<i
+                            class="fa fa-pepper-hot"></i>', $i)?> <?=$i == 0 ? 'No Chilli' : ''?></label>
+                </li>
+                <?php endfor; ?>
+            </ul>
+        </fieldset>
+    </div>
+
+</div><?php
+    }
+
+
+
+    function custom_product_type_options($product_type_options){
+        // unset($product_type_options["_op_drink"]);
+        //  $product_type_options["_op_drink"] = [
+        //     "id"            => "_op_drink",
+        //     "wrapper_class" => ["show_if_simple", "show_if_variable"],
+        //     "label"         => "Bar Item",
+        //     "description"   => "Product is Bar Item",
+        //     "default"       => "no",
+        // ];
+
+        return $product_type_options;
+    }
+
+
+
+    function custom_process_product_meta($post_id){
+        
+        // process custom meta for products 
+
+        // hide on customer app 
+        $hide_on_customer_app = $_POST['cs_hide_customer_app'] ? 'yes' : 'no';
+        update_post_meta($post_id, 'cs_hide_customer_app', $hide_on_customer_app);
+        
+        // hide from web 
+        $hide_from_web = $_POST['cs_hide_web'] ? 'yes' : 'no';
+        update_post_meta($post_id, 'cs_hide_web', $hide_from_web);
+        
+        // spicy level 
+        $spicy_level = $_POST['cs_spicy'] ?? 0;
+        update_post_meta($post_id, 'cs_spicy', $spicy_level );
+        
     }
 }

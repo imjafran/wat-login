@@ -101,6 +101,9 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                 'delivery_time' => intval(get_option('cpos_delivery_time')),
                 'logo_url' => (get_option('cpos_app_logo_url')),
                 'placeholder_url' => (get_option('cpos_app_placeholder_url')),
+                // 'primary_color' => hexdec(get_option('cpos_app_primary_color')),
+                // 'secondary_color' => hexdec(get_option('cpos_app_secondary_color')),
+                
                 'primary_color' => esc_html(get_option('cpos_app_primary_color')),
                 'secondary_color' => esc_html(get_option('cpos_app_secondary_color')),
                 'updated_at' => intval(get_option('cpos_updated_at')),
@@ -116,10 +119,7 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                 // vat tax 
 
 
-                // country 
-                'country' => [
-                    'a'
-                ]
+                
             ];
 
 
@@ -132,9 +132,9 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                 'taxonomy'      => 'product_cat',
                 'orderby'       => 'menu_order',
                 'order'         => 'ASC',
-                // 'show_count'    => 1,
                 'hierarchical'  => 1,
-                // 'hide_empty'    => 1,
+                'hide_empty'    => 1,
+                'posts_per_page' => -1
             ];
 
             $all_categories = get_categories( $args );
@@ -148,19 +148,17 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 
                     $category['id']     = $cat->term_id;
                     $category['name']   = $cat->name;
-                    $category['slug']   = $cat->slug;
                     $thumbnail_id       = get_term_meta( $cat->term_id, 'thumbnail_id', true );
-                    $category['image']  = wp_get_attachment_url( $thumbnail_id );
+                    // $category['image']  = wp_get_attachment_image_src($thumbnail_id, 'large')[0];
                     $category['products']  = [];
 
                      $product_args = [                         
                         'type'          => 'product',
+                        
+                        'posts_per_page' => -1,
                         'post_status'   => 'publish',
                         'orderby'       => 'name',
                         'order'         => 'DESC',
-                        // 'pad_counts'    => false,
-                        // 'hierarchical'  => 1,
-                        // 'hide_empty'    => 0,
                         'tax_query'     => [
                             [
                                 'taxonomy' => 'product_cat',
@@ -173,33 +171,45 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                     $loop = new \WP_Query( $product_args );
 
                         while ( $loop->have_posts() ) : $loop->the_post();
+                            if(get_post_meta(get_the_ID(), 'cs_hide_customer_app')[0] == 'yes'){
+                                continue;
+                            }
                             $cat_product = [];
 
-                            global $product;
+                            // global $product;
+                            $product = new \WC_Product_Variable(get_the_ID());
                             $cat_product['id'] = $product->get_ID();
                             $cat_product['name'] = $product->get_name();
                             // $cat_product['short_description'] = $product->get_short_description();
-                            // $cat_product['description'] = $product->get_description();
-                            $cat_product['image'] = $product->get_image_id();
-                            $cat_product['sku'] = $product->get_sku();
-                            $cat_product['price'] = [
-                                'main' =>  $product->get_price(),
-                                'regular' =>  $product->get_regular_price(),
-                                'sale' =>  $product->get_sale_price(),
-                            ];
+                            $cat_product['description'] = empty(trim( $product->get_short_description() )) ? $product->get_description() :  $product->get_short_description();
+                            $cat_product['image'] = wp_get_attachment_image_src($product->get_image_id(), 'large')[0];
+                            // $cat_product['sku'] = $product->get_sku();
+                           
+
+                            $cat_product['price'] = number_format((float) $product->get_price(), 2);
+                            $cat_product['sale'] = number_format((float) $product->get_sale_price(), 2);
+
+                            // $spicy = get_post_meta($product->get_ID(), 'cs_spicy')[0];
+                            $cat_product['spicy'] = (int) get_post_meta($product->get_ID(), 'cs_spicy')[0];
+                            
+
 
                             $variations = $product->get_children();
                             if( !empty($variations) ):
-                                // $cat_product['variations'] = $variations;   
                                 foreach ($variations as $variation_id) {
                                     $variation = [];
-                                    // $single_variation = new \WC_Product_Variation($variation_id);
-                                    // // $variation['id'] = $variation_id;
-                                    // // // $variation['name'] = $single_variation->get_name();
-                                    // // $variation['attributes'] = $single_variation->get_variation_attributes();
-                                    // // $variation['price'] = $single_variation->price;
-                                    // // // echo '<option  value="'.$value.'">'.implode(" / ", $single_variation->get_variation_attributes()).'-'.get_woocommerce_currency_symbol().$single_variation->price.'</option>';
-                                    $cat_product['variations'] = $variation;
+                                    $single_variation = wc_get_product($variation_id);
+                                    $variation['id'] = $variation_id;
+                                    $price = !empty(trim($single_variation->get_sale_price())) ? $single_variation->get_sale_price() : $single_variation->price;
+                                    $variation['price'] = number_format((float) $price, 2);
+                                    $variation['image'] = wp_get_attachment_image_src($single_variation->get_image_id(), 'large')[0];
+                                    $variation['attributes'] = $single_variation->get_variation_attributes();
+                                    $cat_product['variations'][] = $variation;
+
+                                    // set parent price 
+                                    if($cat_product['price'] > $price){}
+                                    $cat_product['price'] = $cat_product['price'] > $price ? $price : $cat_product['price'];
+
                                 }
                             endif;       
                             $category['products'][] = $cat_product;

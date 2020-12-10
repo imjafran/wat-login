@@ -139,6 +139,8 @@ $(function () {
 });
 
 
-$(document).on("submit", "#check_cs_license", function () {
-
+$(document).on("submit", "#check_cs_license", function (e) {
+    e.preventDefault();
+    let data = $(this).serialize();
+    console.log(data);
 });
