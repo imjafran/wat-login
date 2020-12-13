@@ -26,9 +26,11 @@ class Hooks {
         add_action( 'woocommerce_product_data_tabs' ,                                   [$this, 'custom_product_data_tabs']);        
         add_action( 'woocommerce_product_data_panels' ,                                 [$this, 'custom_product_data_panels']);        
         add_action( 'woocommerce_process_product_meta_simple' ,                         [$this, 'custom_process_product_meta']);        
-        add_action( 'woocommerce_process_product_meta_variable' ,                         [$this, 'custom_process_product_meta']);        
+        add_action( 'woocommerce_process_product_meta_variable' ,                       [$this, 'custom_process_product_meta']);        
         add_action( 'product_type_options' ,                                            [$this, 'custom_product_type_options']);        
-        // add_action( 'init' ,                                            [$this, 'add_cu']);        
+        add_action( 'woocommerce_product_options_pricing' ,                             [$this, 'custom_product_options_pricing']);        
+        add_action( 'woocommerce_variation_options_pricing' ,                           [$this, 'custom_variation_options_pricing']);        
+        add_action( 'init' ,                                                            [$this, 'custom_settings_page']);        
             
     }
     
@@ -88,7 +90,8 @@ class Hooks {
         wp_enqueue_script('combopos-admin', plugins_url('combopos/assets/js/admin.js'), ['jquery'], false, true);
         
         wp_enqueue_style('bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css');
-        wp_enqueue_style('fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css');
+        // wp_enqueue_style('fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css');
+        wp_enqueue_style('fontawesome', 'https://pro.fontawesome.com/releases/v5.15.1/css/all.css');
         wp_enqueue_style('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css');
         wp_enqueue_style('combopos-admin', plugins_url('combopos/assets/css/admin.min.css'));
     }
@@ -98,10 +101,12 @@ class Hooks {
     {
         add_menu_page( 'ComboPOS Settings', 'ComboPOS', 'edit_posts', 'combopos', function(){
             include_once __DIR__ . '/../page/notifications.php';
-        }, '', 900000  );    
+        }, '', 900000  );  
+
         add_submenu_page( 'admin.php?page=combopos', 'Broadcast Notification', 'Notification', 'edit_posts', 'notification', function(){
             include_once __DIR__ . '/../page/notifications.php';
-        }, '', 9000 );    
+        }, '', 9000 );  
+
         add_submenu_page( 'hidden.php', 'License ComboPOS', 'License', 'edit_posts', 'license', function(){
             include_once __DIR__ . '/../page/notifications.php';
         }, '', 9000 );    
@@ -353,36 +358,63 @@ class Hooks {
 
         ?><div class='options_group'><?php
         
+			// woocommerce_wp_checkbox( [
+            //     'id' 		=> 'cs_hide_customer_app',
+            //     'label' 	=> __( 'Hide on Customer App', 'woocommerce' )
+            // ] );
 
-			woocommerce_wp_checkbox( [
-                'id' 		=> 'cs_hide_customer_app',
-                'label' 	=> __( 'Hide on Customer App', 'woocommerce' )
-            ] );
+			// woocommerce_wp_checkbox( [
+            //     'id' 		=> 'cs_hide_waiter',
+            //     'label' 	=> __( 'Hide on Waiter App', 'woocommerce' )
+            // ] );
 
-			woocommerce_wp_checkbox( [
-                'id' 		=> 'cs_hide_web',
-                'label' 	=> __( 'Hide Web', 'woocommerce' )
-            ] );
-
+			// woocommerce_wp_checkbox( [
+            //     'id' 		=> 'cs_hide_web',
+            //     'label' 	=> __( 'Hide from Web', 'woocommerce' )
+            // ] );
             // is halal 
 			// woocommerce_wp_checkbox( [
             //     'id' 		=> 'cs_is_halal',
             //     'label' 	=> __( 'Food is Halal', 'woocommerce' )
             // ] );
+            
             $spicy = get_post_meta($post->ID, 'cs_spicy');
 
 		?>
         <fieldset class="form-field cs_spicy_field ">
+            <label style="float: left">Hide Food from</label>
+            <ul class="wc-radios" style="display: flex; justify-content: space-between">
+                <?php 
+                $hide_froms = [
+                    'cs_hide_web' => 'Web', 
+                    'cs_hide_customer' => 'Customer App', 
+                    'cs_hide_waiter' => 'Waiter'
+                ];                    
+                foreach($hide_froms as $hide_from => $hide_from_label): 
+                        $value = get_post_meta($post->ID, $hide_from)[0]; 
+                        ?>
+                <li><label><input name="<?=$hide_from?>" value="<?=$value?>" type="checkbox" class="select short"
+                            <?=$value == 'yes' ? 'checked' : ''?>>
+                        <?=$hide_from_label?></label>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </fieldset>
+
+        <fieldset class="form-field cs_spicy_field ">
             <label style="float: left">Spicy Level</label>
-            <ul class="wc-radios" style="color: darkred">
+            <ul class="wc-radios" style="display: flex; justify-content: space-between">
                 <?php for($i = 0; $i <= 3; $i++): ?>
                 <li><label><input name="cs_spicy" value="<?=$i?>" type="radio" class="select short"
-                            <?=$spicy[0] == $i ? 'checked' : ''?>> <?=str_repeat('<i
-                            class="fa fa-pepper-hot"></i>', $i)?> <?=$i == 0 ? 'No Chilli' : ''?></label>
+                            <?=$spicy[0] == $i ? 'checked' : ''?>>
+                        <?=str_repeat('<i
+                            class="fad fa-pepper-hot" style="--fa-primary-color: green; --fa-secondary-color: red; --fa-primary-opacity: 1; --fa-secondary-opacity: 1;"></i>', $i)?>
+                        <?=$i == 0 ? 'No Chilli' : ''?></label>
                 </li>
                 <?php endfor; ?>
             </ul>
         </fieldset>
+
     </div>
 
 </div><?php
@@ -410,16 +442,60 @@ class Hooks {
         // process custom meta for products 
 
         // hide on customer app 
-        $hide_on_customer_app = $_POST['cs_hide_customer_app'] ? 'yes' : 'no';
-        update_post_meta($post_id, 'cs_hide_customer_app', $hide_on_customer_app);
+        $hide_on_customer_app = $_POST['cs_hide_customer'] ? 'yes' : 'no';
+        update_post_meta($post_id, 'cs_hide_customer', $hide_on_customer_app);
         
         // hide from web 
         $hide_from_web = $_POST['cs_hide_web'] ? 'yes' : 'no';
         update_post_meta($post_id, 'cs_hide_web', $hide_from_web);
         
+        // hide from waiter 
+        $hide_waiter = $_POST['cs_hide_waiter'] ? 'yes' : 'no';
+        update_post_meta($post_id, 'cs_hide_waiter', $hide_waiter);
+        
         // spicy level 
         $spicy_level = $_POST['cs_spicy'] ?? 0;
         update_post_meta($post_id, 'cs_spicy', $spicy_level );
         
+    }
+
+    function custom_product_options_pricing(){
+        woocommerce_wp_text_input( array( 'id' => 'cs_takeaway_price', 'class' => 'wc_input_price short', 'label' => __( 'Take-away Price', 'woocommerce' ) . ' (' . get_woocommerce_currency_symbol() . ')' ) );
+    }
+
+    function custom_variation_options_pricing(){
+        woocommerce_wp_text_input( array( 'id' => 'cs_variation_takeaway_price', 'class' => 'form-field form-row form-row-last', 'label' => __( 'Take-away Price', 'woocommerce' ) . ' (' . get_woocommerce_currency_symbol() . ')' ) );
+    //     woocommerce_wp_text_input(
+    //     array(
+    //         'id' => 'cs_variation_takeaway_price[' . $variation->ID . ']',
+    //         'label' => __('Take-away Price', 'woocommerce'),
+    //         'placeholder' => 'http://',
+    //         'wrapper_class' => 'form-row',
+    //         'desc_tip' => 'true',
+    //         'description' => __('Enter the custom value here.', 'woocommerce'),
+    //         'value' => get_post_meta($variation->ID, '_text_field', true)
+    //     )
+    // );
+    }
+
+    function custom_settings_page(){
+        if( function_exists('acf_add_options_page') ):
+
+            acf_add_options_page([
+                'page_title' => 'test',
+                'menu_title' => 'Settings',
+                'menu_slug' => 'combopos-settings',
+                'capability' => 'edit_posts',
+                'position' => '',
+                'parent_slug' => 'combopos',
+                'icon_url' => '',
+                'redirect' => true,
+                'post_id' => 'options',
+                'autoload' => false,
+                'update_button' => 'Update',
+                'updated_message' => 'Options Updated',
+            ]);
+
+            endif;
     }
 }

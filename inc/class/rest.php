@@ -200,17 +200,19 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                                     $variation = [];
                                     $single_variation = wc_get_product($variation_id);
                                     $variation['id'] = $variation_id;
-                                    $price = !empty(trim($single_variation->get_sale_price())) ? $single_variation->get_sale_price() : $single_variation->price;
+                                    $price = !empty(trim($single_variation->get_sale_price())) ? $single_variation->get_sale_price() : $single_variation->get_price();
                                     $variation['price'] = number_format((float) $price, 2);
                                     $variation['image'] = wp_get_attachment_image_src($single_variation->get_image_id(), 'large')[0];
                                     $variation['attributes'] = $single_variation->get_variation_attributes();
                                     $cat_product['variations'][] = $variation;
 
                                     // set parent price 
-                                    if($cat_product['price'] > $price){}
-                                    $cat_product['price'] = $cat_product['price'] > $price ? $price : $cat_product['price'];
+                                    $cat_product['price'] = $product->get_variation_regular_price('min');
+                                    $cat_product['sale'] = $product->get_variation_sale_price('min');
 
                                 }
+                            else:
+                                 $cat_product['variations'] = '';
                             endif;       
                             $category['products'][] = $cat_product;
                         endwhile;
