@@ -189,8 +189,32 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                             $cat_product['price'] = number_format((float) $product->get_price(), 2);
                             $cat_product['sale'] = number_format((float) $product->get_sale_price(), 2);
 
-                            // $spicy = get_post_meta($product->get_ID(), 'cs_spicy')[0];
                             $cat_product['spicy'] = (int) get_post_meta($product->get_ID(), 'cs_spicy')[0];
+                            $cat_product["variable_attributes"] = [];
+
+                            
+                            
+                            
+                            
+                            
+                            $product_attributes = $product->get_variation_attributes();
+
+
+                            foreach($product_attributes as $product_attribute => $product_attribute_value){
+                                $Inattrs = wc_get_product_terms( $product->id, $product_attribute );
+                                $attrs = [];
+                                foreach($Inattrs as $attr){
+                                    $attrs[] = [ 
+                                        'name' => $attr->name,
+                                        'slug' => $attr->slug
+                                     ];
+                                }
+                                $cat_product["variable_attributes"][] = [
+                                    'name' => wc_attribute_label($product_attribute),
+                                    'slug' => strtolower($product_attribute),
+                                    'options' => !empty($attrs) ? $attrs : $product_attribute_value
+                                ];
+                            }
                             
 
 
@@ -198,12 +222,15 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
                             if( !empty($variations) ):
                                 foreach ($variations as $variation_id) {
                                     $variation = [];
+                                    // $single_variation = new \WC_Product_Variable($variation_id);
                                     $single_variation = wc_get_product($variation_id);
+                                    // $single_variation = $product;
                                     $variation['id'] = $variation_id;
                                     $price = !empty(trim($single_variation->get_sale_price())) ? $single_variation->get_sale_price() : $single_variation->get_price();
                                     $variation['price'] = number_format((float) $price, 2);
-                                    $variation['image'] = wp_get_attachment_image_src($single_variation->get_image_id(), 'large')[0];
-                                    $variation['attributes'] = $single_variation->get_variation_attributes();
+                                    // $variation['image'] = wp_get_attachment_image_src($single_variation->get_image_id(), 'large')[0];
+                                    $variation['attributes'] = $single_variation->get_attributes();
+                                    // $variation['attributes'] = $single_variation->get_variation_attributes();
                                     $cat_product['variations'][] = $variation;
 
                                     // set parent price 

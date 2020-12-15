@@ -31,6 +31,8 @@ class Hooks {
         add_action( 'woocommerce_product_options_pricing' ,                             [$this, 'custom_product_options_pricing']);        
         add_action( 'woocommerce_variation_options_pricing' ,                           [$this, 'custom_variation_options_pricing']);        
         add_action( 'init' ,                                                            [$this, 'custom_settings_page']);        
+        add_action( 'plugins_loaded' ,                                                  [$this, 'custom_admin_column_shop_order']);        
+        add_action( 'woocommerce_admin_order_data_after_shipping_address' ,             [$this, 'custom_shop_order_admin_data']);        
             
     }
     
@@ -150,18 +152,8 @@ class Hooks {
 
 
     function custom_wc_order_status($order_statuses){
-        $new_order_statuses = [];
-    
-        // add new order status after processing
-        foreach ( $order_statuses as $key => $status ) {
-    
-            $new_order_statuses[ $key ] = $status;
-            if ( 'wc-processing' === $key ) {
-                $new_order_statuses['wc-on-the-way'] = 'On the Way';
-            }
-        }
-    
-        return $new_order_statuses;
+        array_splice( $order_statuses, 2, 0, ['wc-on-the-way' => 'On the Way'] );
+        return $order_statuses;
     }
 
 
@@ -358,25 +350,6 @@ class Hooks {
 
         ?><div class='options_group'><?php
         
-			// woocommerce_wp_checkbox( [
-            //     'id' 		=> 'cs_hide_customer_app',
-            //     'label' 	=> __( 'Hide on Customer App', 'woocommerce' )
-            // ] );
-
-			// woocommerce_wp_checkbox( [
-            //     'id' 		=> 'cs_hide_waiter',
-            //     'label' 	=> __( 'Hide on Waiter App', 'woocommerce' )
-            // ] );
-
-			// woocommerce_wp_checkbox( [
-            //     'id' 		=> 'cs_hide_web',
-            //     'label' 	=> __( 'Hide from Web', 'woocommerce' )
-            // ] );
-            // is halal 
-			// woocommerce_wp_checkbox( [
-            //     'id' 		=> 'cs_is_halal',
-            //     'label' 	=> __( 'Food is Halal', 'woocommerce' )
-            // ] );
             
             $spicy = get_post_meta($post->ID, 'cs_spicy');
 
@@ -482,8 +455,8 @@ class Hooks {
         if( function_exists('acf_add_options_page') ):
 
             acf_add_options_page([
-                'page_title' => 'test',
-                'menu_title' => 'Settings',
+                'page_title' => 'Combopos Settings',
+                'menu_title' => 'Combopos Settings',
                 'menu_slug' => 'combopos-settings',
                 'capability' => 'edit_posts',
                 'position' => '',
@@ -497,5 +470,40 @@ class Hooks {
             ]);
 
             endif;
+    }
+
+    function custom_admin_column_shop_order(){
+        // Just to make clear how the filters work
+        $posttype = "shop_order";
+
+        // Priority 20, with 1 parameter (the 1 here is optional)
+        add_filter( "manage_edit-{$posttype}_columns", function ($columns) {
+            array_splice( $columns, 2, 0, ['order_type' => 'Order Type'] );
+            return $columns;
+        }, 20, 1 ); 
+
+        // Priority 20, with 2 parameters
+        add_action( "manage_{$posttype}_posts_custom_column", function ( $column_name, $post_id ) {
+            if ( 'order_type' != $column_name )
+                return;
+
+            $sales_information = 'Your custom get_order_sales_information($post_id)';
+
+            if ( $sales_information ) {
+                echo get_field('order_type', $post_id)['label'];
+            }
+        }, 20, 2 ); 
+
+        // Default priority, default parameters (zero or one)
+        add_filter( "manage_edit-{$posttype}_sortable_columns", function ( $columns ) {
+            $columns['order_type'] = 'order_type';
+            return $columns;
+        } ); 
+        
+    }
+
+
+    function custom_shop_order_admin_data($delta_wccs_custom_checkout_details_pro_shipping, $int){
+        
     }
 }
