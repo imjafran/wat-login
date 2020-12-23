@@ -4,38 +4,36 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 
 // requiring files 
 require_once __DIR__ . '/class/tgm-plugin-activation.php';
-require_once __DIR__ . '/class/mother.php';
-require_once __DIR__ . '/class/hooks.php';
+require_once __DIR__ . '/class/functions.php';
 require_once __DIR__ . '/class/ajax.php';
 require_once __DIR__ . '/class/rest.php';
 
 
-// combopos class 
-class ComboPOS {
+// DeliveryZones class 
+class DeliveryZones {
     
-    // combopos member variables 
-    public $hooks;
+    // DeliveryZones member variables 
+    public $functions;
     public $rest;
     public $ajax;
     
-    // construct method 
+
     function __construct(){
-    //    register hooks 
-        $this->hooks = new ComboPOS\Hooks;
-        $this->hooks->register_hooks();  
-        $this->ajax = new ComboPOS\Ajax;
-        $this->ajax->register_ajax();  
-        $this->rest = new ComboPOS\Rest();
-        $this->rest->register_rest();  
+    //    register all hooks 
+        $this->functions    = new \Combosoft\ComboPOS\DeliveryZones\Functions();
+        $this->ajax         = new \Combosoft\ComboPOS\DeliveryZones\Ajax();
+        $this->rest         = new \Combosoft\ComboPOS\DeliveryZones\Rest(); 
     }
 
     // activated 
-    public static function activate(){
+    static function activate(){
+        // do staff 
         flush_rewrite_rules();
     }
 
     // deactivated 
-    public static function deactivate(){
+    static function deactivate(){
+        // do staff 
         flush_rewrite_rules();
     }
     
@@ -44,14 +42,10 @@ class ComboPOS {
 
 
 // initializing plugin 
-$_combopos = new ComboPOS();
-
-// // switching to global variable 
-global $_combopos;
-
+$_combopos_delivery_zones   = new \Combosoft\DeliveryZones();
 
 // Activation Plugin
-register_activation_hook( _CPOS_FILE, ['\Combosoft\ComboPOS', 'activate'] );
+register_activation_hook( _CPOS_DeliveryZone_FILE, ['\Combosoft\DeliveryZones', 'activate'] );
 
 // // Deactivation Plugin
-register_deactivation_hook( _CPOS_FILE, ['\Combosoft\ComboPOS', 'deactivate'] );
+register_deactivation_hook( _CPOS_DeliveryZone_FILE, ['\Combosoft\DeliveryZones', 'deactivate'] );

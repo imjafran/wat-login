@@ -3,9 +3,9 @@
  *
  * @package combopos
  *
- * Plugin Name: ComboPOS Online Order
+ * Plugin Name: ComboPOS Delivery Zones
  * Plugin URI: http://combopos.co.uk/plugin/
- * Description: ComboPOS Integration Plugin By Combosoft Ltd.
+ * Description: ComboPOS Smart Delivery Zone Management Plugin By Combosoft Ltd.
  * Version: 1.0.0
  * Author: Combosoft Ltd
  * Author URI: http://combosoft.co.uk/
@@ -16,6 +16,6 @@
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
-define('_CPOS_FILE', __FILE__);
+define('_CPOS_DeliveryZone_FILE', __FILE__);
 
 require_once __DIR__ . '/inc/load.php';
