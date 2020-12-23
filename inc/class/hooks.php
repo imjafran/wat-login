@@ -17,7 +17,7 @@ class Hooks {
         add_action( 'rest_api_init' ,                                                   [$this, 'reset_default_values']);
         add_action( 'wc_order_statuses' ,                                               [$this, 'custom_wc_order_status']);        
         add_action( 'woocommerce_admin_order_data_after_order_details' ,                [$this, 'custom_delivery_time_options']);
-        add_action( 'woocommerce_process_shop_order_meta' ,                             [$this, 'custom_delivery_time_save']);
+        add_action( 'woocommerce_process_shop_order_meta' ,                             [$this, 'save_order_meta_admin_panel'], 10);
         add_action( 'woocommerce_update_product' ,                                      [$this, 'change_updated_at_option'], 10, 1);
         add_action( 'saved_product_cat' ,                                               [$this, 'change_updated_at_option']);
         add_action( 'rest_product_collection_params' ,                                  [$this, 'change_default_wc_rest_product_collection'], 10, 1);        
@@ -32,24 +32,24 @@ class Hooks {
         add_action( 'woocommerce_variation_options_pricing' ,                           [$this, 'custom_variation_options_pricing']);        
         add_action( 'init' ,                                                            [$this, 'custom_settings_page']);        
         add_action( 'plugins_loaded' ,                                                  [$this, 'custom_admin_column_shop_order']);        
-        add_action( 'woocommerce_admin_order_data_after_shipping_address' ,             [$this, 'custom_shop_order_admin_data']);        
+        add_action( 'woocommerce_admin_order_data_after_billing_address' ,             [$this, 'custom_shop_order_admin_data']);        
             
     }
     
     // // before plugin activation 
     function plugin_activation(){
         $plugins = [
-            // [
-            //     'name'               => 'Woocommerce',
-            //     'slug'               => 'woocommerce',
-            //     'required'           => true
-            // ],
+            [
+                'name'               => 'Woocommerce',
+                'slug'               => 'woocommerce',
+                'required'           => true
+            ],
 
-            // [
-            //     'name'               => 'JWT Auth',
-            //     'slug'               => 'jwt-auth', 
-            //     'required'           => false
-            // ],
+            [
+                'name'               => 'JWT Auth',
+                'slug'               => 'jwt-auth', 
+                'required'           => false
+            ],
 
             [
                 'name'               => 'Advanced Custom Fields Pro',
@@ -61,7 +61,7 @@ class Hooks {
             [
                 'name'               => 'Advanced Custom Fields: Extended',
                 'slug'               => 'acf-extended',
-                'required'           => true
+                'required'           => false
             ]
         ];
 
@@ -159,23 +159,19 @@ class Hooks {
 
     function custom_delivery_time_options($order){ 
        
-        $time = get_post_meta( $order->get_id(), 'delivery_time', true );
+        $time = get_post_meta( $order->get_id(), '_delivery_time', true );
         $order_created = $order->get_date_created(); 
-        $diff = strtotime($order_created);
+        $diff = time() - strtotime($order_created);
 
         woocommerce_wp_text_input( array(
 				'id' => 'delivery_time',
 				'label' => 'Estimated Delivery Time: [in minutes]',
-				'value' => $time,
+				'value' => ceil($diff/60)/60,
 				'wrapper_class' => 'form-field-wide'
             ) );
         ?>
 
 <div class="delivery_time_quick">
-    <a href="#" data-value="10">10 mins</a>
-    <a href="#" data-value="15">15 mins</a>
-    <a href="#" data-value="20">20 mins</a>
-    <a href="#" data-value="25">25 mins</a>
     <a href="#" data-value="30">30 mins</a>
     <a href="#" data-value="40">40 mins</a>
     <a href="#" data-value="45">45 mins</a>
@@ -503,7 +499,83 @@ class Hooks {
     }
 
 
-    function custom_shop_order_admin_data($delta_wccs_custom_checkout_details_pro_shipping, $int){
-        
+    function custom_shop_order_admin_data($order){
+         // Radio Buttons field
+        //  var_dump($order->get_id());
+        $_order_type = get_post_meta($order->get_id(),'order_type',  true);
+        $_order_source = get_post_meta($order->get_id(), 'order_source', true);
+        var_dump($_order_type);
+        var_dump($_order_source);
+       ?>
+<div class="cs-form">
+    <h5>Order Type</h5>
+    <div class="cs_form_radio">
+        <?php 
+            $order_types = [
+                "takeaway" => [
+                    "Takeaway", "fa fa-bags-shopping"
+                ],
+                "delivery" => [
+                    "Delivery", "fa fa-shipping-fast"
+                ],
+                "dinein" => [
+                    "Dine In", "fa fa-utensils-alt"
+                ]
+            ];
+
+            foreach($order_types as $order_type_slug => $order_type):
+        ?>
+        <input type="radio" name="order_type" value="<?=$order_type_slug;?>" id="order_type_<?=$order_type_slug;?>"
+            <?=$_order_type == $order_type_slug ? 'checked' : ''?>>
+        <label for="order_type_<?=$order_type_slug;?>" class="<?=$_order_type == $order_type_slug ? 'active' : ''?>"><i
+                class="<?=$order_type[1];?>"></i>
+            <?=$order_type[0];?></label>
+        <?php endforeach; ?>
+    </div>
+
+    <h5>Order Source</h5>
+    <div class="cs_form_radio">
+        <?php 
+            $order_sources = [
+                "web" => [
+                    "Website", "fa fa-globe"
+                ],
+                "app" => [
+                    "Customer App", "fa fa-mobile"
+                ],
+                "pos" => [
+                    "POS / Manual", "fa fa-window"
+                ]
+            ];
+
+            foreach($order_sources as $order_source_slug => $order_source):
+        ?>
+        <input type="radio" name="order_source" value="<?=$order_source_slug;?>"
+            id="order_source_<?=$order_source_slug;?>" <?=$_order_source == $order_source_slug ? 'checked' : ''?>>
+        <label for="order_source_<?=$order_source_slug;?>"
+            class="<?=$_order_source == $order_source_slug ? 'active' : ''?>"><i class="<?=$order_source[1];?>"></i>
+            <?=$order_source[0];?></label>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php 
     }
+
+
+
+    
+    function save_order_meta_admin_panel($ord_id){
+        $order = wc_get_order( $ord_id );
+        $time = wc_clean( $_POST[ 'delivery_time' ] );
+        $order_created = $order->get_date_created(); 
+        $order_created_timestamp = strtotime(time());
+        update_post_meta( $ord_id, 'delivery_time',  $order_created_timestamp);		
+
+        $order_type = wc_clean( $_POST['order_type']);
+        $order_source = wc_clean( $_POST['order_source']);
+        
+        update_post_meta( $ord_id, 'order_type',  $order_type);        
+        update_post_meta( $ord_id, 'order_source',  $order_source);
+    }
+
 }

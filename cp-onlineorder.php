@@ -3,7 +3,7 @@
  *
  * @package combopos
  *
- * Plugin Name: ComboPOS
+ * Plugin Name: ComboPOS Online Order
  * Plugin URI: http://combopos.co.uk/plugin/
  * Description: ComboPOS Integration Plugin By Combosoft Ltd.
  * Version: 1.0.0

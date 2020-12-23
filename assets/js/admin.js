@@ -144,3 +144,9 @@ $(document).on("submit", "#check_cs_license", function (e) {
     let data = $(this).serialize();
     console.log(data);
 });
+
+$(document).on("click", '.cs_form_radio label', function (e) {
+    console.log("radio changed");
+    $(this).closest('.cs_form_radio').find('label').removeClass('active')
+    $(this).addClass('active')
+});

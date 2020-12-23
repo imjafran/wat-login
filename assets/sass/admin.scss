@@ -1,27 +1,35 @@
-// $color : indianred;
-// $white : #f0f0f0;
+$color : indianred;
+$white : #f0f0f0;
 
-// .delivery_time_quick {
-//     margin-top: 10px;
-//     width: 100%;
-//     display: flex;
-//     align-items: center;
-//     justify-content: space-between;
-//     flex-wrap: wrap;
+.delivery_time_quick {
+    margin-top: 5px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
 
-//     a {
-//         width: 98px;
-//         height: 40px;
-//         display: inline-flex;
-//         align-items: center;
-//         justify-content: center;
-//         text-align: center;
-//         background: $color;
-//         color: $white;
-//         text-decoration: none;
-//         margin: 5px;
-//     }
-// }
+    a {
+        width: 90px;
+        height: 35px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: transparent;
+        border: 1px solid rgba(0, 0, 0, .1);
+        color: #333;
+        text-decoration: none;
+        margin-top: 5px;
+        // margin-right: 5px;
+        transition: .3s;
+
+        &:hover {
+            background: peru;
+            color: #fff;
+        }
+    }
+}
 
 
 // a,
@@ -174,7 +182,47 @@
     }
 }
 
-// .fa-pepper-hot {
-//     &--fa-primary-color: darked;
-//     &--fa-secondary-color: green,
-// }
+.cs-form {
+
+    h5 {
+        font-size: 15px;
+    }
+
+    .cs_form_radio {
+        margin: 15px 0;
+        display: flex;
+        align-items: center;
+        // justify-content: space-between;
+        margin: 20px 0 10px;
+
+        input[type=radio] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            display: none;
+        }
+
+        label {
+            margin-right: 10px;
+            background: #fff;
+            width: 100px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(0, 0, 0, .1);
+            transition: .3s;
+
+            i {
+                margin-right: 5px;
+            }
+
+            &:focus,
+            &:hover,
+            &.active {
+                background: peru;
+                color: #fff;
+            }
+        }
+    }
+}
