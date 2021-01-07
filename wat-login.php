@@ -1,14 +1,14 @@
 <?php
 /**
  *
- * @package combopos
+ * @package watlogin
  *
- * Plugin Name: WAT login
+ * Plugin Name: WAT - Web Auth Token
  * Plugin URI: http://combopos.co.uk/plugin/
- * Description: Web Auth Token system designed by Combosoft Ltd
+ * Description: WAT - Web Auth Token; simple authenticationsystem for WordPress REST API; Designed by Jafran Hasan
  * Version: 1.0.0
- * Author: Combosoft Ltd
- * Author URI: http://combosoft.co.uk/
+ * Author: Jafran Hasan
+ * Author URI: https://girhub.co,/iamjafran
  * License: GPLv2 or latter
  * Text Domain: combopos
  * User: Jafran
@@ -16,24 +16,22 @@
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
-define('WAT_Login', __FILE__);
-
+define('WAT_File', __FILE__);
 
 require_once __DIR__  . '/inc/functions.php';
 
 
 
-
 // _WATLogin class 
-class _WATLogin {
+class _WAT_Parent {
     
     // _WATLogin member variables 
     public $functions;
     
     function __construct(){
     //    register all hooks 
-        $this->functions    = new \Combosoft\WATLogin\Functions();
-        $this->functions->register_hooks();
+        $this->functions    = new \WAT\WAT();
+        $this->functions->init();
     }
 
     // activated 
@@ -53,7 +51,7 @@ class _WATLogin {
 
 
 // initializing plugin 
-$WATLogin   = new _WATLogin();
+$WATLogin   = new \_WAT_Parent();
 global $WATLogin;
 
 // Activation Plugin

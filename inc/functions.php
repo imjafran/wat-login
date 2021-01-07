@@ -1,238 +1,303 @@
 <?php
 
-namespace Combosoft\WATLogin;
-use \WP_REST_Response;
+namespace WAT;
 
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 
-class Functions {
-    /**
-     * Hooks Register
-     */
-    public $blacklist = [
-        '/wp-json/combopos/v1/app',
-        '/wp-json/combopos/v1/products'
-    ];
-    
-    function register_hooks() {
-       
-        add_action('rest_api_init', [$this, 'before_rest_init']);
-        add_action('rest_api_init', [$this, 'register_wat_rests']);
+class WAT {
+ 
+    # member variables
+    public $token = null;
+    # Register Hooks 
+    public function init() { 
+        # custom construct method       
+        add_action('rest_api_init',                         [$this, 'middleware_check'], 0);
+        add_action('rest_api_init',                         [$this, 'register_wat_rests']);
+        add_action('plugins_loaded',                        [$this, 'wat_loaded']);
+        add_action('after_wat_registration',                [$this, 'update_user_metas']);
     }
     
-    function register_wat_rests($server){
-        register_rest_route( '/wat', 'auth', [
-            'methods'  => ['POST'],
-            'callback' => [$this, 'authenticate_user']
-        ]);
-
-        register_rest_route( '/wat', 'profile', [
-            'methods'  => ['GET'],
-            'callback' => [$this, 'get_profile']
-        ]);
-
-        register_rest_route( '/wat', 'verify', [
-            'methods'  => ['GET'],
-            'callback' => [$this, 'verify_token']
-        ]);
-
-        register_rest_route( '/wat', 'profile', [
-            'methods'  => ['POST'],
-            'callback' => [$this, 'edit_profile']
-        ]);
+    public function wat_loaded(){
+        # if jwt installed, whitelisting wat
+        add_filter( 'jwt_auth_whitelist', function($endpoints){
+            array_push( $endpoints, '/wp-json/wat/*' );
+            return $endpoints;
+        });
     }
 
-    
-    function authenticate_user(){
-        $email = $_REQUEST['email'] ?? ( $_REQUEST['username'] ?? null);
-        $password = $_REQUEST['password'] ?? null;
 
-        $authenticated = wp_authenticate($email, $password);
+    function middleware_check(){
+
+        // $parsed_url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+        // $home_url = home_url();
+        // $requested_url = str_replace($home_url, '', $parsed_url);
+        // $default_middlewares = [
+        //     '/wp-json/combopos/v1/app'
+        // ];
+        // $middlewares = apply_filters( 'wat_apply_middleware',  $default_middlewares);
+
+        // $out = false;
         
-        if($authenticated->data != null){
-            
-            // logged in 
-            $data = $authenticated->data;
-            $user = new \StdClass();
-            $user->id = (int) $data->ID;
-            $user->name = $data->display_name;            
-            $user->email = $data->user_email;        
-            $user->username = $data->user_login;
-            $user->status = $data->user_status;
-            
+        // foreach($middlewares as $middleware){
+        //     $middleware = str_replace(['/', '*'], ['/', '.+'], $middleware);
+        //     $out = $middleware;
+        //     if(preg_match("#$middleware#gm", $requested_url)){
+        //         $out = $middleware;
+        //         break;
+        //     }
+        // }
 
-            // delete former meta 
-            delete_user_meta( $data->ID, 'wa_token');
-            // generate user meta 
-            $randomUniqueKey =  time() . $user->id . bin2hex(random_bytes(15)) . substr( str_shuffle('ABCDEFGHIJKLMNOPQRST123456789'), 0, 5);
-            add_user_meta($user->id, 'wa_token', $randomUniqueKey);
-            $user->wa_token = $randomUniqueKey;
+        // return wp_send_json([$out, $requested_url, $middlewares]);
+        // wp_die();
+    }
+    # Register REST 
+    public function register_wat_rests($server){
+        $routes_v1 = [            
+            # [ROUTE, METHODS, CALLBACK],
+            ['auth',                    ['POST'],       'authenticateUser'],
+            ['verify',                  ['GET'],        'verifyToken'],
+            ['logout',                  ['GET'],        'logoutUser'],
+            ['register',                ['POST'],       'registerUser'],
+            ['password/forgot',         ['POST'],        'send_password_reset_code'],
+            ['password/verify',         ['POST'],        'verify_password_reset_code'],
+            ['password/reset',          ['POST'],        'password_reset'],
+        ];
 
-            wp_send_json_success( $user );
-            wp_die();
+        foreach($routes_v1 as $route){
+            register_rest_route( '/wat/v1', $route[0], [
+                'methods'  => $route[1],
+                'callback' => [$this, $route[2]]
+            ]);
         }
-        wp_send_json_error( $authenticated->errors );
-        wp_die();
+
     }
 
-    function getToken(){
+    public function createToken(){
+        $wat_token_bytes = apply_filters( 'wat_token_bytes', 10 );
+        return md5(time()) . bin2hex(random_bytes($wat_token_bytes));
+    }
+
+    public function getTokenFromHeader(){
         $headers = $_SERVER["HTTP_AUTHORIZATION"] ?? false;
         if($headers) {
             preg_match("/WAT.?\w+/im", $headers, $match);
             if($match && !empty($match) && count($match) > 0){
-                return trim(str_replace('WAT', '', $match[0]));
+                $token = trim(str_replace('WAT', '', $match[0]));
+                $this->token = $token;
             } else {
-                return false;
+                $token = false;
             }
         }
-        return false;
+        return $token;
     }
 
-    function verify_token(){
-        $token = $this->getToken() ?? ($_REQUEST['token'] ?? null);
-        if(!$token) {
-            wp_send_json_error( 'Invalid Web Auth Token' );
+    public function verifyToken($request){
+        $user = $this->getUser();
+        if($user && isset($user->id)){
+            wp_send_json_success( $user );
             wp_die();
         }
-
-        $user = get_users([
-            'meta_key' => 'wa_token',
-            'meta_value' => $token
-        ]);
-
-        if(!$user){
-           wp_send_json_error( 'Invalid Web Auth Token' );
-            wp_die();
-        } 
-
-        return [
-            'success' => true,
-            'data' => 'Web Auth Token Verified'
-        ];
-    }
-
-    function get_user_by_token($token){
-
-        $user = get_users([
-            'meta_key' => 'wa_token',
-            'meta_value' => $token
-        ]);
-
-        if(!$user){
-            return [
-                'success' => false,
-                'error' => 'Invalid Token'
-            ];
-        }
-
-        // reauthenticate user 
-
-        $data = $user[0]->data;
-        $output = new \StdClass();
-        $output->id = (int) $data->ID;
-        $output->name = $data->display_name;            
-        $output->email = $data->user_email;        
-        $output->username = $data->user_login;
-        $output->status = $data->user_status;
-        $output->wa_token = get_user_meta($data->ID, 'wa_token', true);
-
-        return $output;
+        wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
+        wp_die();
     }
     
+    public function authenticateUser($request){
+        $email = $request['email'] ?? $request['username'] ?? null;
+        $password = $request['password'] ?? null;
 
-    function before_rest_init(){
+        # before wat login hook
+        do_action('before_wat_login', $request);
         
+        # authenticate user 
+        $authenticated = wp_authenticate($email, $password);
+        
+        if($authenticated->data != null){
+            
+            # logged in 
+            $user = $this->getUserFromObject($authenticated);                        
+
+            # delete former meta 
+            delete_user_meta( $user->id, 'wa_token');
+            # generate user meta 
+            $token = $this->createToken();
+            add_user_meta($user->id, 'wa_token', $token);
+            $user->token = $token;
+
+
+            # after wat auth hook 
+            do_action( 'after_wat_login', $user->id );
+
+            wp_send_json_success( $user );
+            wp_die();
+        }
+        wp_send_json_error( $authenticated->errors ?? 'SERVER_ERROR' );
+        wp_die();
     }
 
-    function get_profile(){
-        $user = wat_get_user();
-        // $customer = 
-        $customer = new \WC_Customer( $user->data->ID );
-        if(!$customer){
-            return [
-                'success' => false,
-                'data' => 'No customer found'
-            ];
+    public function logoutUser($request){
+        $user = $this->getUser();
+        delete_user_meta( $user->id, 'wa_token');
+        wp_send_json_success('LOGOUT_SUCCESSFUL');
+        wp_die();
+    }
+
+    public function getUserFromObject($data){
+        $output = new \StdClass();
+        $output->id = (int) $data->data->ID;
+        $output->first_name = $data->data->first_name;            
+        $output->last_name = $data->data->last_name;            
+        $output->email = $data->data->user_email;        
+        $output->username = $data->data->user_login;
+        $output->token = get_user_meta($data->data->ID, 'wa_token', true);
+        $output->role = $data;
+        
+        $caps = [];
+        foreach($data->allcaps as $cap => $value){
+            if($value)
+                $caps[] = $cap;
         }
 
-        $userdata = [
-            'name' => $customer->get_display_name(),
-            'email' => $customer->get_display_name(),
-            'username' => $customer->get_display_name(),
-            'first_name' => $customer->get_display_name(),
-            'last_name' => $customer->get_display_name(),
-            'billing' => [
-                'first_name' => $customer->get_billing_first_name(),
-                'last_name' => $customer->get_billing_last_name(),
-                'company' => $customer->get_billing_company(),
-                'addres_1' => $customer->get_billing_address_1(),
-                'addres_2' => $customer->get_billing_address_2(),
-                'city' => $customer->get_billing_city(),
-                'state' => $customer->get_billing_state(),
-                'postcode' => $customer->get_billing_postcode(),
-                'country' => $customer->get_billing_country(),
-            ],
-            'shipping' => [
-                'first_name' => $customer->get_shipping_first_name(),
-                'last_name' => $customer->get_shipping_last_name(),
-                'company' => $customer->get_shipping_company(),
-                'addres_1' => $customer->get_shipping_address_1(),
-                'addres_2' => $customer->get_shipping_address_2(),
-                'city' => $customer->get_shipping_city(),
-                'state' => $customer->get_shipping_state(),
-                'postcode' => $customer->get_shipping_postcode(),
-                'country' => $customer->get_shipping_country(),
-            ],
-        ];
-        
-
-        // $customer_orders = get_posts([
-        //     'numberposts' => -1,
-        //     'meta_key'    => '_customer_user',
-        //     'meta_value'  => $user->data->ID,
-        //     'post_type'   => wc_get_order_types(),
-        //     'post_status' => array_keys( wc_get_order_statuses() ),
-        // ]);
-
-        // $userdata['total_orders'] = count($customer_orders);
-
-        return [
-            'success' => true,
-            'data' => $userdata
-        ];
+        $output->capabilities = $caps;
+        return $output;
     }
-    function edit_profile(){
+
+    public function getUserID($request = null){
+        $user = $this->getUser();
+        return $user->ID;
+    }
+    
+    public function getUser($request = null){
+        $token = $this->getTokenFromHeader() ?? ($request['token'] ?? null);
+        if(!$token) {
+            wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
+            wp_die();
+        }
+
+        $user = get_users([
+            'meta_key' => 'wa_token',
+            'meta_value' => $token
+        ]);
+
+        if(empty($user) || !$user){
+            wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
+            wp_die();
+        }
+
+        return $this->getUserFromObject($user[0]);
+    }
+  
+    public function registerUser($request){
+
+        $register_allow = get_option( 'users_can_register');
+        if(!$register_allow) {
+            wp_send_json_error( 'REGISTRATION_NOW_ALLOWED' );
+            wp_die();
+        }
+        # before wat registration hook 
+        do_action( 'before_wat_registration', $request );
+
+        $user_login = $request['username'] ?? null;
+        $user_pass = $request['password'] ?? null;
+        $user_email = $request['email'] ?? null;
+
+        if(!$user_email) {
+            wp_send_json_error( 'INVALID_EMAIL' );
+            wp_die();
+        }
+
+        # create password if not set 
+        if(!$user_pass) {
+            $user_pass = bin2hex(random_bytes(6));
+        }
+
+        # create unique username if not set 
+        if($user_login  == null){
+            $user_login = explode('@', $user_email)[0];
+            $user_login = strtolower($user_login);
+        }        
+
+        # $user_id = wp_create_user( $user_login, $user_pass, $user_email );
+        $error_code = null;
+        
+        while($user_id = wp_create_user( $user_login, $user_pass, $user_email )){
+            if(!is_wp_error($user_id)){
+                break;
+            }
+            $error_code = key($user_id->errors);
+            if($error_code == 'existing_user_login' && !isset($request['username'])){
+                $user_login .= rand(0,9);
+                continue;
+            } 
+            wp_send_json_error( $error_code);
+            wp_die();
+        }
+       
+        # delete former meta 
+        delete_user_meta( $user_id, 'wa_token');
+        # generate user meta 
+        $token =  $this->createToken();
+        add_user_meta($user_id, 'wa_token', $token);
+        
+        update_user_meta($user_id, 'first_name', $request['first_name'] ?? '');
+        update_user_meta($user_id, 'last_name', $request['last_name'] ?? '');
+        
+        $user = new \StdClass();
+        $user->id = $user_id;
+        $user->first_name = $request['first_name'];
+        $user->last_name = $request['last_name'];
+        $user->email = $user_email;
+        $user->username = $user_login;
+        $user->wa_token = $token;
+        
+        # after wat registration hook 
+        do_action( 'after_wat_registration', $user_id );
+
+        wp_send_json_success( $user );
+        wp_die();
+    }
+
+    function update_user_metas($user_id){
+        # update user meta
+
+    }
+
+    function send_password_reset_code($request){
+        $email = $request['email'] ?? false;
+        $username = $request['username'] ?? false;
+        if(!$email && !$username){
+            wp_send_json_error( 'INVALID_EMAIL_OR_USERNAME' );
+            wp_die();            
+        }
+
+        $usisUserer = NULL;
+        if($email){
+            $isUser = get_user_by('email', $email );
+        } else {
+            $isUser = get_user_by('login', $username);
+        }
+
+        if(!$isUser){
+            wp_send_json_error( 'USER_DOES_NOT_EXIST' );
+            wp_die();
+        }
+        
+        $user = new \WP_User( intval($isUser->ID) );
+        $reset_key = get_password_reset_key( $user );
+        $wc_emails = WC()->mailer()->get_emails();
+        $sent = $wc_emails['WC_Email_Customer_Reset_Password']->trigger( $user->user_login, $reset_key );
+
+        wp_send_json_success( 'SENT_RESET_LINK_TO_EMAIL' );
+        wp_die();
         
     }
+    
 }
 
-
-
-
-
-
-add_action( 'plugins_loaded', function(){
-    add_filter(
-		'jwt_auth_whitelist',
-		function ( $endpoints ) {
-			$whitelists = array(
-				'/wp-json/wat/*',
-			);
-
-			foreach ( $whitelists as $whitelist ) {
-				if ( ! in_array( $whitelist, $endpoints, true ) ) {
-					array_push( $endpoints, $whitelist );
-				}
-			}
-
-			return $endpoints;
-		}
-	);
-} );
-
-
-function wat_get_user(){
-    $functions = new \Combosoft\WATLogin\Functions();
-    $user = $functions->get_user();
-    return get_user_by('id', $user->id) ?? false;
+# additional features 
+# declare a function that return logged in user 
+if(!function_exists('wat_get_user')){
+    function wat_get_user(){
+        $functions = new \WAT\WAT();
+        return $functions->getUser();
+    }
 }
