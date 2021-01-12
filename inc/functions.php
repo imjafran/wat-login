@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 class WAT {
  
     # member variables
-    public $token = null;
+    public $user = null;
     # Register Hooks 
     public function init() { 
         # custom construct method       
@@ -28,27 +28,48 @@ class WAT {
 
     function middleware_check(){
 
-        // $parsed_url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-        // $home_url = home_url();
-        // $requested_url = str_replace($home_url, '', $parsed_url);
-        // $default_middlewares = [
-        //     '/wp-json/combopos/v1/app'
-        // ];
-        // $middlewares = apply_filters( 'wat_apply_middleware',  $default_middlewares);
+        $parsed_url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+        $home_url = home_url();
+        $requested_url = str_replace($home_url, '', $parsed_url);
+        $default_middlewares = [
+            '/wp-json/wat/v1/password/change'
+        ];
 
-        // $out = false;
-        
-        // foreach($middlewares as $middleware){
-        //     $middleware = str_replace(['/', '*'], ['/', '.+'], $middleware);
-        //     $out = $middleware;
-        //     if(preg_match("#$middleware#gm", $requested_url)){
-        //         $out = $middleware;
-        //         break;
-        //     }
-        // }
+        $middlewares = apply_filters( 'wat_apply_middleware',  $default_middlewares);        
 
-        // return wp_send_json([$out, $requested_url, $middlewares]);
-        // wp_die();
+        // check url match 
+        $found = false;        
+        foreach($middlewares as $middleware){
+            $middleware = str_replace(['*'], ['.+'], $middleware);
+            preg_match('~^' . $middleware . '+$~', $requested_url, $match);
+            if($match[0]){
+                $found = $match[0];
+                break;
+            }
+        }
+
+        if($found){
+            $token = $this->getTokenFromHeader();
+            if(!$token) {
+                wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
+                wp_die();
+            }
+
+            $user = get_users([
+                'meta_key' => 'wa_token',
+                'meta_value' => $token
+            ]);
+
+            if(empty($user) || !$user){
+                wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
+                wp_die();
+            }
+
+            $this->user =  $this->getUserFromObject($user[0]);
+        }
+
+        // wp_send_json( get_current_user_id() );
+
     }
     # Register REST 
     public function register_wat_rests($server){
@@ -59,8 +80,7 @@ class WAT {
             ['logout',                  ['GET'],        'logoutUser'],
             ['register',                ['POST'],       'registerUser'],
             ['password/forgot',         ['POST'],        'send_password_reset_code'],
-            ['password/verify',         ['POST'],        'verify_password_reset_code'],
-            ['password/reset',          ['POST'],        'password_reset'],
+            ['password/change',         ['POST'],        'change_password'],
         ];
 
         foreach($routes_v1 as $route){
@@ -106,7 +126,7 @@ class WAT {
         $password = $request['password'] ?? null;
 
         # before wat login hook
-        do_action('before_wat_login', $request);
+        do_action('before_wat_login');
         
         # authenticate user 
         $authenticated = wp_authenticate($email, $password);
@@ -144,12 +164,12 @@ class WAT {
     public function getUserFromObject($data){
         $output = new \StdClass();
         $output->id = (int) $data->data->ID;
-        $output->first_name = $data->data->first_name;            
-        $output->last_name = $data->data->last_name;            
+        $output->first_name = get_user_meta($data->data->ID, 'first_name', true);            
+        $output->last_name = get_user_meta($data->data->ID, 'last_name', true);            
         $output->email = $data->data->user_email;        
         $output->username = $data->data->user_login;
         $output->token = get_user_meta($data->data->ID, 'wa_token', true);
-        $output->role = $data;
+        $output->role = $data->roles[0];
         
         $caps = [];
         foreach($data->allcaps as $cap => $value){
@@ -167,23 +187,19 @@ class WAT {
     }
     
     public function getUser($request = null){
+
         $token = $this->getTokenFromHeader() ?? ($request['token'] ?? null);
-        if(!$token) {
-            wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
-            wp_die();
+        if($token){
+            $user = get_users([
+                'meta_key' => 'wa_token',
+                'meta_value' => $token
+            ]);
+
+            if(!empty($user) && $user){
+                return $this->getUserFromObject($user[0]);
+            }
+            return false;        
         }
-
-        $user = get_users([
-            'meta_key' => 'wa_token',
-            'meta_value' => $token
-        ]);
-
-        if(empty($user) || !$user){
-            wp_send_json_error( 'INVALID_WEB_AUTH_TOKEN' );
-            wp_die();
-        }
-
-        return $this->getUserFromObject($user[0]);
     }
   
     public function registerUser($request){
@@ -228,7 +244,7 @@ class WAT {
                 $user_login .= rand(0,9);
                 continue;
             } 
-            wp_send_json_error( $error_code);
+            wp_send_json_error( $user_id->errors);
             wp_die();
         }
        
@@ -289,6 +305,35 @@ class WAT {
         wp_send_json_success( 'SENT_RESET_LINK_TO_EMAIL' );
         wp_die();
         
+    }
+
+    function change_password($request){
+        
+        $user = $this->getUser();
+        
+        $old_pass = $request['old'] ?? false;
+
+        if(!$old_pass){
+            wp_send_json_error( 'INCORRECT_OLD_PASSWORD' );
+            wp_die();
+        }
+       
+        $userIntance = get_user_by_email( $user->email );
+
+        if( !wp_check_password($old_pass, $userIntance->data->user_pass, $user->id )){
+            wp_send_json_error( 'INCORRECT_OLD_PASSWORD' );
+            wp_die();
+        }
+
+        $new_pass = $request['new'] ?? false;
+        if(!$new_pass){
+            wp_send_json_error( 'INVALID_PASSWORD' );
+            wp_die();
+        }
+
+        wp_set_password($new_pass, $user->id);
+        wp_send_json_success( 'PASSWORD_CHANGED' );
+        wp_die();
     }
     
 }
