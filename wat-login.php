@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 define('WAT_File', __FILE__);
 
-require_once __DIR__  . '/inc/functions.php';
+require_once __DIR__  . '/inc/class.wat.php';
 
 
 

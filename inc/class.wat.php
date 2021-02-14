@@ -11,6 +11,7 @@ if(!class_exists("\WAT\WAT")) {
             WAT | Web Auth Token 
             Binary Authentication System for WordPress REST API
             Architect : Jafran Hasan
+            Documentation: https://github.com/imjafran/wat-login
         */
         # member variables
         public $extended = '/';
@@ -212,8 +213,6 @@ if(!class_exists("\WAT\WAT")) {
             return $user;
         }
 
-    
-
         // automatic authenticate user 
         function wat_rest_init(){
             $token = $this->getToken();
@@ -398,10 +397,10 @@ if(!class_exists("\WAT\WAT")) {
             
            
             $force = $request['force'] ?? false;
-
-            $userIntance = get_user_by_email( $user->email );
             
-            if(!$force) {
+            if(!$force) {                
+
+                $userIntance = get_user_by_email( $user->email );
                 
                 $old_pass = $request['old'] ?? false;
 
@@ -555,7 +554,6 @@ if(!class_exists("\WAT\WAT")) {
             // add_user_meta($user_id, '_wat_github', '');
             // add_user_meta($user_id, '_wat_pinterest', '');
             add_user_meta($user_id, '_wat_picture', '');
-            $this->updateToken($user_id);
         }     
         
         function after_wat_loaded(){
