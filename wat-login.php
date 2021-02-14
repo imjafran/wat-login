@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) or die('Direct Script not Allowed');
 define('_WAT', __FILE__);
 
-require_once __DIR__  . '/inc/class.wat.php';
+require_once __DIR__  . '/class/wat.php';
 
 
 // initializing plugin 
