@@ -126,8 +126,8 @@ if(!class_exists("\WAT\WAT")) {
         
         function updateToken($user_id){
             $token =  $this->createToken();
-            $update = update_user_meta( $user_id, 'wa_token', $token);
-            if(!$update) add_user_meta( $user_id, 'wa_token', $token);
+            $update = update_user_meta( $user_id, '_wat_token', $token);
+            if(!$update) add_user_meta( $user_id, '_wat_token', $token);
             return $token;
         }
         
@@ -143,7 +143,7 @@ if(!class_exists("\WAT\WAT")) {
             $output->last_name = get_user_meta($data->data->ID, 'last_name', true);            
             $output->email = $data->data->user_email;        
             $output->username = $data->data->user_login;
-            $output->token = get_user_meta($data->data->ID, 'wa_token', true);
+            $output->token = get_user_meta($data->data->ID, '_wat_token', true);
             $output->role = $data->roles[0];
             
             $caps = [];
@@ -218,7 +218,7 @@ if(!class_exists("\WAT\WAT")) {
             $token = $this->getToken();
             if($token){
                 $user = get_users([
-                    'meta_key' => 'wa_token',
+                    'meta_key' => '_wat_token',
                     'meta_value' => $token
                 ]);
 
@@ -325,7 +325,7 @@ if(!class_exists("\WAT\WAT")) {
         function logoutUser($request){
             $id = get_current_user_id();
             if($id)
-                update_user_meta( $id, 'wa_token', '');
+                update_user_meta( $id, '_wat_token', '');
             wp_logout();
             $this->success('LOGGED_OUT');
         }
@@ -454,19 +454,11 @@ if(!class_exists("\WAT\WAT")) {
             $action = $request['action'] ?? 'auth';
 
             if(!$facebook_id) {
-                return new \WP_REST_Response([
-                    'status' => false,
-                    'message' => 'Invalid Facebook ID',
-                    'data' => []
-                ]);
+               $this->error('invalid_facebook_id');
             }
 
             if(!$access_token) {
-                return new \WP_REST_Response([
-                    'status' => false,
-                    'message' => 'Invalid Access Token',
-                    'data' => []
-                ]);
+                $this->error('invalid_access_token');
             }
 
             $url = 'https://graph.facebook.com/' . $facebook_id . '?fields=id,first_name,last_name,email,picture&access_token=' . $access_token;
@@ -475,18 +467,11 @@ if(!class_exists("\WAT\WAT")) {
             $response = json_decode($fb->response);
 
             if(isset($response->error)){
-                return new \WP_REST_Response(
-                    [
-                        'success' => false,
-                        'message' => $response->error->message,
-                        'data' => []
-                    ]
-                );
+               $this->error($response->error->message);
             }
 
             // response is ok 
 
-            // wp_send_json( $action );
             switch($action){
                 case 'link':
                     // link account 
@@ -511,31 +496,48 @@ if(!class_exists("\WAT\WAT")) {
                 default: 
                 // auth account 
                 // chech the email registered yet 
-                    $user = get_user_by_email( $response->email );
-                    if(is_a($user, '\WP_User')){
-                        // Registered user 
+                    $users = get_users([
+                        'meta_key' => '_wat_facebook',
+                        'meta_value' => $facebook_id
+                    ]);
+                    
+                    // if user registered 
+                    if(!empty($users)){                        
+                        // pick first one 
+                        $user = $users[0];
 
-                        $fbUserId = get_user_meta( $user->ID, '_wat_facebook', true );
-                            if($fbUserId && $facebook_id){
-                                // linked 
-                                $data = $this->loginUser( $user );
-                                $this->success($data);
-                            } else {
-                                // not linked yet 
-                                $this->error('facebook_not_connected');
-                        }
+                        // login the user 
+                        $data = $this->loginUser( $user );
+                        $this->success($data);
                         
                     } else {
                         // user not registered 
-                        $user_id = $this->createUser($response->email);
-                        // wp_send_json_success( $user_id );
-                        update_user_meta($user_id, 'first_name', $response->first_name );
-                        update_user_meta( $user_id, 'last_name', $response->last_name );                
-                        update_user_meta( $user_id, '_wat_facebook', $response->id );                
-                        add_user_meta($user_id, '_wat_picture', $response->picture->data->url);
+                        if($response->email && !empty($response->email)) {
 
-                        $data = $this->getUserFromObject(get_user_by_email( $response->email ));
-                        $this->success($data);
+                            // check the email registered 
+                            $userByEmail = get_user_by_email( $response->email );
+                           
+                            if(is_a($userByEmail, '\WP_User')){
+                                // not connected yet 
+                                $this->error('facebook_not_connected');
+                            } else {
+
+                                // register new account 
+                                // register the user 
+                                $user_id = $this->createUser($response->email);
+                                update_user_meta($user_id, 'first_name', $response->first_name );
+                                update_user_meta( $user_id, 'last_name', $response->last_name );                
+                                update_user_meta( $user_id, '_wat_facebook', $response->id );                
+                                update_user_meta($user_id, '_wat_picture', $response->picture->data->url);
+
+                                $data = $this->loginUser(get_user_by('id', $user_id ));
+                                $data->facebook = get_user_meta($user_id, '_wat_facebook', true);
+                                $this->success($data);
+                            }
+                            
+                        } else {
+                            $this->error('email_not_found');
+                        }
                     }
                 break;
             }
