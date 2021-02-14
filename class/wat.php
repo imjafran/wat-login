@@ -449,17 +449,16 @@ if(!class_exists("\WAT\WAT")) {
 
         // social facebook 
         function auth_facebook($request){
+            // required 
             $facebook_id = $request['facebook_id'] ?? false;
             $access_token = $request['access_token'] ?? false;
+            
+            if(!$facebook_id) $this->error('invalid_facebook_id');
+            if(!$access_token) $this->error('invalid_access_token');
+            
+            // action 
             $action = $request['action'] ?? 'auth';
 
-            if(!$facebook_id) {
-               $this->error('invalid_facebook_id');
-            }
-
-            if(!$access_token) {
-                $this->error('invalid_access_token');
-            }
 
             $url = 'https://graph.facebook.com/' . $facebook_id . '?fields=id,first_name,last_name,email,picture&access_token=' . $access_token;
             
@@ -470,14 +469,133 @@ if(!class_exists("\WAT\WAT")) {
                $this->error($response->error->message);
             }
 
+             // chech the email registered yet 
+            $linkedUsers = get_users([
+                'meta_key' => '_wat_facebook',
+                'meta_value' => $response->email
+            ]);
+
+            $linkedUser = $linkedUsers[0] ?? false;
+
             // response is ok 
 
             switch($action){
                 case 'link':
-                    // link account 
+                     // link account
                     if(is_user_logged_in()){
-                        update_user_meta( get_current_user_id(), '_wat_facebook', $response->id );
-                        $this->success('facebook_connected');
+                        if($linkedUser) {
+                            if($linkedUser->ID == get_current_user_id()) {
+                                $this->error('already_linked');
+                            } else {
+                                $this->error('linked_to_someone_else');
+                            }
+                        } else {
+                            update_user_meta( get_current_user_id(), '_wat_facebook', $response->email );
+                            $this->success('facebook_linked');
+                        }
+                    } else {
+                        $this->error('invalid_web_auth_token');
+                    }
+                break;
+
+                case 'unlink':
+                    // unlink 
+                    if(is_user_logged_in()){
+                        if($linkedUser) {
+                            if($linkedUser->ID == get_current_user_id()) {
+                                update_user_meta( get_current_user_id(), '_wat_facebook', '' );
+                                $this->success('facebook_unlinked');
+                            } else {
+                                $this->error('permission_denied');
+                            }
+                        } else {
+                           $this->error('not_linked');
+                        }
+                    } else {
+                        $this->error('invalid_web_auth_token');
+                    }
+                break;
+                
+                default: 
+                // auth account 
+               
+                    
+                    // if user registered 
+                    if($linkedUser){         
+
+                        // login the user 
+                        $data = $this->loginUser( $linkedUser );
+                        $this->success($data);
+                        
+                    } else {
+                        // user not registered 
+                        // check the email registered 
+                        $userByEmail = get_user_by_email( $response->email );
+                        // wp_send_json( $userByEmail );
+                        
+                        if(is_a($userByEmail, '\WP_User')){
+                            // not connected yet 
+                            $this->error('facebook_not_connected');
+                        } else {
+
+                            // register new account 
+                            $user_id = $this->createUser($response->email);
+                            update_user_meta($user_id, 'first_name', $response->first_name );
+                            update_user_meta( $user_id, 'last_name', $response->last_name );                
+                            update_user_meta( $user_id, '_wat_facebook', $response->email );  
+                            $picture = get_user_meta($user_id, '_wat_picture', true);
+                            if(empty($picture)) update_user_meta($user_id, '_wat_picture', $response->picture->data->url);
+
+                            $data = $this->loginUser(get_user_by('id', $user_id ));
+                            $this->success($data);
+                        }
+                    }
+                break;
+            }
+                            
+                
+        }
+        // social google 
+        function auth_google($request){
+            // required fields 
+            $access_token = $request['access_token'] ?? false;                            
+            if(!$access_token) $this->error('access_token');                    
+            
+            // action 
+            $action = $request['action'] ?? 'auth';
+            
+            $url = 'https://www.googleapis.com/oauth2/v3/userinfo?access_token=' . $access_token;
+            
+            $google = $this->getResponse($url);
+            $response = json_decode($google->response);
+
+
+            if(isset($response->error_description) && !empty($response->error_description)){
+                $this->error('invalid_access_token');
+            }
+            
+            // response is ok 
+
+            $linkedUsers = get_users([
+                        'meta_key' => '_wat_google',
+                        'meta_value' => $response->email
+                    ]);
+            $linkedUser = $linkedUsers[0] ?? false;
+
+            switch($action){
+                case 'link':
+                    // link account
+                    if(is_user_logged_in()){
+                        if($linkedUser) {
+                            if($linkedUser->ID == get_current_user_id()) {
+                                $this->error('already_linked');
+                            } else {
+                                $this->error('linked_to_someone_else');
+                            }
+                        } else {
+                            update_user_meta( get_current_user_id(), '_wat_google', $response->email );
+                            $this->success('google_linked');
+                        }
                     } else {
                         $this->error('invalid_web_auth_token');
                     }
@@ -486,8 +604,16 @@ if(!class_exists("\WAT\WAT")) {
                 case 'unlink':
                     // unlink account 
                     if(is_user_logged_in()){
-                        update_user_meta( get_current_user_id(), '_wat_facebook', '' );
-                        $this->success('facebook_diconnected');
+                        if($linkedUser) {
+                            if($linkedUser->ID == get_current_user_id()) {
+                                update_user_meta( get_current_user_id(), '_wat_google', '' );
+                                $this->success('google_unlinked');
+                            } else {
+                                $this->error('permission_denied');
+                            }
+                        } else {
+                           $this->error('not_linked');
+                        }
                     } else {
                         $this->error('invalid_web_auth_token');
                     }
@@ -496,47 +622,33 @@ if(!class_exists("\WAT\WAT")) {
                 default: 
                 // auth account 
                 // chech the email registered yet 
-                    $users = get_users([
-                        'meta_key' => '_wat_facebook',
-                        'meta_value' => $facebook_id
-                    ]);
+                    
                     
                     // if user registered 
-                    if(!empty($users)){                        
-                        // pick first one 
-                        $user = $users[0];
+                    if($linkedUser){
 
                         // login the user 
-                        $data = $this->loginUser( $user );
+                        $data = $this->loginUser( $linkedUser );
                         $this->success($data);
                         
                     } else {
-                        // user not registered 
-                        if($response->email && !empty($response->email)) {
-
-                            // check the email registered 
-                            $userByEmail = get_user_by_email( $response->email );
+                        // user not registered, so create one 
+                        $userByEmail = get_user_by_email( $response->email );
                            
-                            if(is_a($userByEmail, '\WP_User')){
-                                // not connected yet 
-                                $this->error('facebook_not_connected');
-                            } else {
-
-                                // register new account 
-                                // register the user 
-                                $user_id = $this->createUser($response->email);
-                                update_user_meta($user_id, 'first_name', $response->first_name );
-                                update_user_meta( $user_id, 'last_name', $response->last_name );                
-                                update_user_meta( $user_id, '_wat_facebook', $response->id );                
-                                update_user_meta($user_id, '_wat_picture', $response->picture->data->url);
-
-                                $data = $this->loginUser(get_user_by('id', $user_id ));
-                                $data->facebook = get_user_meta($user_id, '_wat_facebook', true);
-                                $this->success($data);
-                            }
-                            
+                        if(is_a($userByEmail, '\WP_User')){
+                            // not connected yet 
+                            $this->error('not_linked');
                         } else {
-                            $this->error('email_not_found');
+                            // register new account 
+                            $user_id = $this->createUser($response->email);
+                            update_user_meta($user_id, 'first_name', $response->given_name );
+                            update_user_meta( $user_id, 'last_name', $response->family_name );                
+                            update_user_meta( $user_id, '_wat_google', $response->email );  
+                            $picture = get_user_meta($user_id, '_wat_picture', true);
+                            if(empty($picture)) update_user_meta($user_id, '_wat_picture', $response->picture);
+
+                            $data = $this->loginUser(get_user_by('id', $user_id ));
+                            $this->success($data);
                         }
                     }
                 break;
