@@ -31,7 +31,6 @@ if(!class_exists("\WAT\WAT")) {
         
         // core build 
         function getMessages($message_id = false){
-            $message_id = strtolower($message_id);
             $messages = [
                 'empty_username' => 'Empty Username',
                 'not_registered' => 'User not Registered',
@@ -52,7 +51,7 @@ if(!class_exists("\WAT\WAT")) {
 
             $FilteredMessages = apply_filters( 'wat_response_messages', $messages );
 
-            return (array_key_exists($message_id, $FilteredMessages)) ? $FilteredMessages[$message_id] : $message_id;
+            return (array_key_exists(strtolower($message_id), $FilteredMessages)) ? $FilteredMessages[strtolower($message_id)] : $message_id;
         }        
 
         function response($success = true, $data = [], $codeWithData = ''){
@@ -624,7 +623,7 @@ if(!class_exists("\WAT\WAT")) {
                                 $passwordless = get_user_meta(get_current_user_id(), '_wat_passwordless', true);
                                 $facebookConnected = get_user_meta(get_current_user_id(), '_wat_facebook', true);                                
                                 if($passwordless && !$facebookConnected) $this->error('You can not disconnect Google. Either connect Facebook or set Password first.');
-
+                            
                                 update_user_meta( get_current_user_id(), '_wat_google', '' );
                                 $this->success('google_unlinked');
                             } else {
