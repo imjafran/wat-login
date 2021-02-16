@@ -34,6 +34,7 @@ if(!class_exists("\WAT\WAT")) {
             $message_id = strtolower($message_id);
             $messages = [
                 'empty_username' => 'Empty Username',
+                'not_registered' => 'User not Registered',
                 'invalid_username' => 'Invalid Username',
                 'invalid_email' => 'Invalid Email',
                 'empty_password' => 'Empty Password',
@@ -46,6 +47,7 @@ if(!class_exists("\WAT\WAT")) {
                 'valid_web_auth_token' => 'Valid Web Auth Token',
                 'invalid_web_auth_token' => 'Invalid Web Auth Token',
                 'logged_in' => 'Logged In',
+                'password_changed' => 'Password changed successfully',
             ];
 
             $FilteredMessages = apply_filters( 'wat_response_messages', $messages );
@@ -53,12 +55,12 @@ if(!class_exists("\WAT\WAT")) {
             return (array_key_exists($message_id, $FilteredMessages)) ? $FilteredMessages[$message_id] : $message_id;
         }        
 
-        function response($success = true, $data = []){
+        function response($success = true, $data = [], $codeWithData = ''){
             $response = [
                 'success' => $success ? true : false,
-                'code' => '',
+                'code' => $codeWithData,
                 'message' => '',
-                'data' => '',
+                // 'data' =>  [],
             ];         
             if(is_object($data) || is_array($data)){
                 $response['data'] = $data;
@@ -71,11 +73,11 @@ if(!class_exists("\WAT\WAT")) {
             wp_die();
         }
 
-        function success($data = []){
+        function success($data = [], $codeWithData = ''){
             $this->response(true, $data);
         }
 
-        function error($data = []){
+        function error($data = [], $codeWithData = ''){
             $this->response(false, $data);
         }
         
@@ -290,7 +292,6 @@ if(!class_exists("\WAT\WAT")) {
                     'callback' => [$this, $route[2]]                    
                 ]);
             }
-
         }
 
         
@@ -319,7 +320,9 @@ if(!class_exists("\WAT\WAT")) {
                 return $this->getMessages($error);
             }, array_keys($authenticated->errors));
             
-            $this->error(array_keys($authenticated->errors)[0]);
+            $error = array_keys($authenticated->errors)[0];
+            $error = $error == 'invalid_email' ? 'not_registered' : $error;
+            $this->error($error);
         }
 
         function logoutUser($request){
@@ -356,11 +359,11 @@ if(!class_exists("\WAT\WAT")) {
             if(!$user_id){
                 $this->error('existing_user_email');
             } 
-            $user = $this->loginUser(get_user_by( 'id', $user_id ));
             
             update_user_meta($user_id, 'first_name', $request['first_name'] ?? '');
             update_user_meta($user_id, 'last_name', $request['last_name'] ?? '');
                   
+            $user = $this->loginUser(get_user_by( 'id', $user_id ));
             $this->success( $user );
         }
 
@@ -463,7 +466,7 @@ if(!class_exists("\WAT\WAT")) {
             $url = 'https://graph.facebook.com/' . $facebook_id . '?fields=id,first_name,last_name,email,picture&access_token=' . $access_token;
             
             $fb = $this->getResponse($url);
-            $response = json_decode($fb->response);
+            $response = json_decode($fb->response); 
 
             if(isset($response->error)){
                $this->error($response->error->message);
@@ -546,8 +549,8 @@ if(!class_exists("\WAT\WAT")) {
                             $picture = get_user_meta($user_id, '_wat_picture', true);
                             if(empty($picture)) update_user_meta($user_id, '_wat_picture', $response->picture->data->url);
 
-                            $data = $this->loginUser(get_user_by('id', $user_id ));
-                            $this->success($data);
+                            $data = $this->loginUser(get_user_by('id', $user_id ));                            
+                            $this->response(true, $data, "SET_PASSWORD");
                         }
                     }
                 break;
@@ -648,7 +651,7 @@ if(!class_exists("\WAT\WAT")) {
                             if(empty($picture)) update_user_meta($user_id, '_wat_picture', $response->picture);
 
                             $data = $this->loginUser(get_user_by('id', $user_id ));
-                            $this->success($data);
+                            $this->response(true, $data, "SET_PASSWORD");
                         }
                     }
                 break;
@@ -656,7 +659,6 @@ if(!class_exists("\WAT\WAT")) {
                             
                 
         }
-
 
         // additional    
         function wat_after_registration($user_id){
@@ -678,11 +680,10 @@ if(!class_exists("\WAT\WAT")) {
             });
         }
 
-        
-        
+            
         // development 
         function auth_test(){
-           $this->response(false, 'INVALID_EMAIL');
+           $this->succes('INVALID_EMAIL');
         }
 
     }
