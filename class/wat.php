@@ -360,7 +360,7 @@ if(!class_exists("\WAT\WAT")) {
                 $this->error('existing_user_email');
             } 
 
-            add_user_meta( $user_id, 'passwordless', false );
+            add_user_meta( $user_id, '_wat_passwordless', false );
             
             update_user_meta($user_id, 'first_name', $request['first_name'] ?? '');
             update_user_meta($user_id, 'last_name', $request['last_name'] ?? '');
@@ -401,7 +401,7 @@ if(!class_exists("\WAT\WAT")) {
             $user = $this->getUser();
             
             // check if the user is passwordless user 
-            $passwordless = get_user_meta($user->id, 'passwordless', true);
+            $passwordless = get_user_meta($user->id, '_wat_passwordless', true);
            
             if(!$passwordless){
                 $userIntance = get_user_by_email( $user->email );
@@ -424,7 +424,7 @@ if(!class_exists("\WAT\WAT")) {
             wp_set_password($new_pass, $user->id);
             
             // turn off passwordless mode 
-            update_user_meta($user->id, 'passwordless', false);
+            update_user_meta($user->id, '_wat_passwordless', false);
             
             $this->success('password_changed');
         }
@@ -509,6 +509,12 @@ if(!class_exists("\WAT\WAT")) {
                     if(is_user_logged_in()){
                         if($linkedUser) {
                             if($linkedUser->ID == get_current_user_id()) {
+
+                                // check accessibility
+                                $passwordless = get_user_meta(get_current_user_id(), '_wat_passwordless', true);
+                                $googleConnected = get_user_meta(get_current_user_id(), '_wat_google', true);                                
+                                if($passwordless && !$googleConnected) $this->error('You can not disconnect Facebook. Either connect Google or set Password first.');
+
                                 update_user_meta( get_current_user_id(), '_wat_facebook', '' );
                                 $this->success('facebook_unlinked');
                             } else {
@@ -614,6 +620,11 @@ if(!class_exists("\WAT\WAT")) {
                     if(is_user_logged_in()){
                         if($linkedUser) {
                             if($linkedUser->ID == get_current_user_id()) {
+                                // check accessibility
+                                $passwordless = get_user_meta(get_current_user_id(), '_wat_passwordless', true);
+                                $facebookConnected = get_user_meta(get_current_user_id(), '_wat_facebook', true);                                
+                                if($passwordless && !$facebookConnected) $this->error('You can not disconnect Google. Either connect Facebook or set Password first.');
+
                                 update_user_meta( get_current_user_id(), '_wat_google', '' );
                                 $this->success('google_unlinked');
                             } else {
@@ -649,7 +660,7 @@ if(!class_exists("\WAT\WAT")) {
                         } else {
                             // register new account 
                             $user_id = $this->createUser($response->email);
-                            add_user_meta( $user_id, 'passwordless', true );
+                            add_user_meta( $user_id, '_wat_passwordless', true );
                             update_user_meta($user_id, 'first_name', $response->given_name );
                             update_user_meta( $user_id, 'last_name', $response->family_name );                
                             update_user_meta( $user_id, '_wat_google', $response->email );  
