@@ -359,6 +359,8 @@ if(!class_exists("\WAT\WAT")) {
             if(!$user_id){
                 $this->error('existing_user_email');
             } 
+
+            add_user_meta( $user_id, 'passwordless', false );
             
             update_user_meta($user_id, 'first_name', $request['first_name'] ?? '');
             update_user_meta($user_id, 'last_name', $request['last_name'] ?? '');
@@ -398,11 +400,10 @@ if(!class_exists("\WAT\WAT")) {
             
             $user = $this->getUser();
             
+            // check if the user is passwordless user 
+            $passwordless = get_user_meta($user->id, 'passwordless', true);
            
-            $force = $request['force'] ?? false;
-            
-            if(!$force) {                
-
+            if(!$passwordless){
                 $userIntance = get_user_by_email( $user->email );
                 
                 $old_pass = $request['old'] ?? false;
@@ -414,7 +415,6 @@ if(!class_exists("\WAT\WAT")) {
                     $this->error( 'incorrect_old_password' );
                 }
             }
-
             
             $new_pass = $request['password'] ?? false;
             if(!$new_pass){            
@@ -422,6 +422,9 @@ if(!class_exists("\WAT\WAT")) {
             }
 
             wp_set_password($new_pass, $user->id);
+            
+            // turn off passwordless mode 
+            update_user_meta($user->id, 'passwordless', false);
             
             $this->success('password_changed');
         }
@@ -543,6 +546,7 @@ if(!class_exists("\WAT\WAT")) {
 
                             // register new account 
                             $user_id = $this->createUser($response->email);
+                            add_user_meta( $user_id, 'passwordless', true );
                             update_user_meta($user_id, 'first_name', $response->first_name );
                             update_user_meta( $user_id, 'last_name', $response->last_name );                
                             update_user_meta( $user_id, '_wat_facebook', $response->email );  
@@ -561,6 +565,7 @@ if(!class_exists("\WAT\WAT")) {
         // social google 
         function auth_google($request){
             // required fields 
+            
             $access_token = $request['access_token'] ?? false;                            
             if(!$access_token) $this->error('access_token');                    
             
@@ -644,6 +649,7 @@ if(!class_exists("\WAT\WAT")) {
                         } else {
                             // register new account 
                             $user_id = $this->createUser($response->email);
+                            add_user_meta( $user_id, 'passwordless', true );
                             update_user_meta($user_id, 'first_name', $response->given_name );
                             update_user_meta( $user_id, 'last_name', $response->family_name );                
                             update_user_meta( $user_id, '_wat_google', $response->email );  
@@ -656,6 +662,7 @@ if(!class_exists("\WAT\WAT")) {
                     }
                 break;
             }
+            
                             
                 
         }
