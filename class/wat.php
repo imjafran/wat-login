@@ -551,7 +551,7 @@ if(!class_exists("\WAT\WAT")) {
 
                             // register new account 
                             $user_id = $this->createUser($response->email);
-                            add_user_meta( $user_id, 'passwordless', true );
+                            add_user_meta( $user_id, '_wat_passwordless', true );
                             update_user_meta($user_id, 'first_name', $response->first_name );
                             update_user_meta( $user_id, 'last_name', $response->last_name );                
                             update_user_meta( $user_id, '_wat_facebook', $response->email );  
